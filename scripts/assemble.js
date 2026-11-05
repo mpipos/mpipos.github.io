@@ -35,7 +35,7 @@ const page = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex">
+<meta name="google-site-verification" content="YMwkZ820s7uDLKN7I7OW0ydEguS_hjWnRuNEMCQa0j4">
 <title>Market Pivots and IPOs</title>
 <meta name="description" content="Pivot points, charts, fundamentals, news and IPOs for the Indian stock market.">
 <link rel="icon" href="${FAVICON}">
