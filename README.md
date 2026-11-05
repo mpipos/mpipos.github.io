@@ -1,4 +1,4 @@
-# Pivot Calculator
+# Market Pivots and IPOs
 
 Pick any stock or index on the Indian market and a trading day to get its pivot point, with a price chart, fundamentals and news. A separate section covers IPOs.
 
@@ -49,6 +49,7 @@ The page names its source beside each set of figures. It doesn't use sites whose
 
 - `scripts/collect.js` gathers everything into `.cache/site/`, using the readers in `scripts/sources/`. Each instrument gets its own file, which the page loads when someone chooses it.
 - `scripts/dataset-checks.js` refuses an update that would damage the page.
+- `lib/movers.js` works out each day's top gainers and losers, which `scripts/assemble.js` writes as a small file per date.
 - `scripts/assemble.js` joins the list of instruments and the code in `page/` and `lib/` into `dist/index.html`, and copies the data files beside it.
 - `lib/pivot.js` holds the formula.
 - `lib/market.js` answers the page's questions, such as a day's pivot or the 52-week range.
@@ -56,8 +57,10 @@ The page names its source beside each set of figures. It doesn't use sites whose
 ## About the prices
 
 - NSE prices are the ones actually traded on the day, so they aren't adjusted for later splits or bonuses. The page says when a later corporate action makes an old price look out of line with today's.
-- The chart rescales candles across a corporate action to stay continuous. The sessions table always shows actual prices.
-- Only finished trading days are included.
+- The chart rescales prices across a corporate action to stay continuous. The sessions table always shows actual prices.
+- The chart shows candles or a line of closing prices, from one day to three years. Candles group into weeks or months when a period is too long to show each day.
+- Only finished trading days are included, so the current price shown is the latest close on record, not a live price.
+- Top gainers and losers compare each close with the stock's previous close. They leave out corporate-action days, stocks that hadn't traded for over a week, and moves above 40%, which are almost always a price basis changing rather than a real day's move. NIFTY 500 means the index's current members.
 - Rows no market could produce, such as an open above the day's high, are dropped. So are Yahoo's flat bars, which repeat the last close as all four prices. The page then says the day has no prices rather than show a wrong pivot.
 - Corporate actions are detected from overnight falls of more than 25%, which every build logs for review. A smaller one, such as ITC's January 2025 demerger, appears as an ordinary price move.
 

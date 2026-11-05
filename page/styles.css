@@ -31,6 +31,7 @@
   --shadow-lift: 0 2px 4px rgb(0 0 0 / 12%), 0 16px 40px rgb(0 0 0 / 20%);
   --glass: rgb(255 255 255 / 93%);
   --hero-glow: rgb(255 255 255 / 13%);
+  --hero-card: rgb(15 15 15 / 88%);
   --ground-bull: #2b2b2b;
   --ground-bear: #dadada;
   --bull-hi: #ffffff;
@@ -74,6 +75,7 @@
     --shadow-lift: 0 2px 4px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
     --glass: rgb(22 22 22 / 93%);
     --hero-glow: rgb(0 0 0 / 7%);
+    --hero-card: rgb(240 240 240 / 88%);
     --ground-bull: #141414;
     --ground-bear: #8e8e8e;
     --bull-hi: #e6e6e6;
@@ -115,6 +117,7 @@
   --shadow-lift: 0 2px 4px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
   --glass: rgb(22 22 22 / 93%);
   --hero-glow: rgb(0 0 0 / 7%);
+  --hero-card: rgb(240 240 240 / 88%);
   --ground-bull: #141414;
   --ground-bear: #8e8e8e;
   --bull-hi: #e6e6e6;
@@ -180,9 +183,7 @@ main,
   top: env(safe-area-inset-top, 0px);
   z-index: 30;
   border-bottom: 1px solid var(--line);
-  background: var(--glass);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
-  backdrop-filter: saturate(160%) blur(14px);
+  background: var(--surface);
 }
 
 .topbar-inner {
@@ -198,6 +199,10 @@ main,
   gap: 0.625rem;
   color: var(--ink);
   text-decoration: none;
+}
+
+.brand svg {
+  flex: none;
 }
 
 .brand-name {
@@ -320,7 +325,7 @@ main,
 /* Controls */
 
 main {
-  padding-block: clamp(7.5rem, min(32vw, 20vh), 14rem) 3rem;
+  padding-block: 1.5rem 3rem;
 }
 
 .controls {
@@ -593,7 +598,7 @@ button {
   min-width: 0;
   padding: clamp(1.25rem, 3vw, 1.75rem);
   border-radius: 1.25rem;
-  background: radial-gradient(120% 90% at 100% 0%, var(--hero-glow), transparent 62%), var(--hero);
+  background: radial-gradient(120% 90% at 100% 0%, var(--hero-glow), transparent 62%), var(--hero-card);
   color: var(--on-hero);
 }
 
@@ -645,6 +650,15 @@ button {
 .pivot-label strong {
   color: var(--on-hero);
   font-weight: 600;
+}
+
+.current-price {
+  margin: 0.125rem 0 0;
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .pivot-line {
@@ -781,6 +795,19 @@ button {
   box-shadow: var(--shadow);
 }
 
+.chart-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.chart-tools .segmented button {
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+
 .chart-head {
   display: flex;
   flex-wrap: wrap;
@@ -842,7 +869,8 @@ button {
   }
 }
 
-.is-animated .pivot-level {
+.is-animated .pivot-level,
+.is-animated .price-line {
   stroke-dasharray: 1;
   animation: draw-level 700ms var(--ease) both;
 }
@@ -1060,6 +1088,113 @@ button {
 
 .range-ends span {
   color: var(--muted);
+}
+
+.movers-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Runs the full width under the sessions table and news. */
+.movers {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+/* Holds the space while the day's file loads, so what's below doesn't jump. */
+.movers-body.is-loading {
+  min-height: 30rem;
+}
+
+.mover-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 2.25rem;
+}
+
+.mover-column h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mover-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mover-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.mover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 4.75rem;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.875rem;
+  padding: 0.375rem 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.mover:hover {
+  background: var(--accent-soft);
+}
+
+.mover-name {
+  display: grid;
+  min-width: 0;
+  font-weight: 550;
+}
+
+.mover-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mover-name small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mover-close,
+.mover-change {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mover-change {
+  font-weight: 650;
+}
+
+.mover-note {
+  margin-top: 0.875rem;
+}
+
+.mover-message {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.875rem;
 }
 
 .secondary {
@@ -1379,7 +1514,7 @@ tr.is-selected:hover td {
   gap: 1.25rem;
   padding: clamp(1.25rem, 3vw, 1.75rem);
   border-radius: 1.25rem;
-  background: radial-gradient(120% 120% at 100% 0%, var(--hero-glow), transparent 62%), var(--hero);
+  background: radial-gradient(120% 120% at 100% 0%, var(--hero-glow), transparent 62%), var(--hero-card);
   color: var(--on-hero);
 }
 
@@ -1718,41 +1853,101 @@ tr.is-selected:hover td {
 
 /* Smaller screens */
 
-/* The background: one half dark with a light bull, the other light with a dark bear. */
+/* The background: a dark half with a light bull, a light half with a dark bear, meeting at the centre of the screen. */
 
 .backdrop {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  left: 0;
+  /* The largest height a phone's screen reaches, so its address bar sliding away doesn't nudge the animals. */
+  height: 100vh;
+  height: 100lvh;
   z-index: -1;
-  display: flex;
-  align-items: flex-start;
+  /* Everything scales from one unit, so the pair stays centred and in proportion on any screen. */
+  --unit: min(1vw, 1.8vh);
+  /* The bull is wider than the bear, so centring the pair puts the point where they meet just right of the middle. */
+  --split: calc(50% + 2 * var(--unit));
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  column-gap: var(--unit);
   padding-top: 4rem;
   overflow: hidden;
-  background: linear-gradient(100deg, var(--ground-bull) 49.9%, var(--ground-bear) 50.1%);
+  contain: strict;
+  /* A pixel of blending keeps the slanted edge crisp, without jagged steps. */
+  background: linear-gradient(100deg, var(--ground-bull) calc(var(--split) - 0.5px), var(--ground-bear) calc(var(--split) + 0.5px));
   pointer-events: none;
 }
 
-.backdrop svg {
-  flex: 0 0 50%;
-  width: 50%;
+.beast-defs {
+  position: absolute;
+}
+
+.beast {
+  position: relative;
+  /* The whole scene tips one way: the bull charges uphill, the bear lunges downhill. */
+  rotate: -6deg;
+}
+
+.beast svg {
+  display: block;
+  width: 100%;
   height: auto;
   overflow: visible;
-  /* The whole scene tips one way: the bull charges uphill, the bear lunges downhill. */
-  transform: rotate(-6deg) scale(0.96);
 }
 
 .backdrop .bull {
-  /* Lifted a little, so its eye clears the first card. */
-  transform: translateY(-4.5%) rotate(-6deg) scale(0.96);
+  width: calc(44 * var(--unit));
   --hi: var(--bull-hi);
   --lo: var(--bull-lo);
   --eye: var(--ground-bull);
+  --stalk-x: -14vw;
+  --stalk-y: 0vh;
 }
 
 .backdrop .bear {
+  width: calc(40 * var(--unit));
   --hi: var(--bear-hi);
   --lo: var(--bear-lo);
   --eye: var(--ground-bear);
+  --stalk-x: 14vw;
+  --stalk-y: 0vh;
+}
+
+/* On an upright screen, one above the other, which lets each fill the width. */
+@media (max-aspect-ratio: 1/1) {
+  .backdrop {
+    --unit: min(1vw, 0.59vh);
+    /* The bear is taller, so the point where they meet sits above the middle. The top bar's space moves everything down a little. */
+    --split: calc(50% - 5.5 * var(--unit) + 2rem);
+    grid-template-columns: auto;
+    justify-items: center;
+    align-content: center;
+    row-gap: var(--unit);
+    background: linear-gradient(172deg, var(--ground-bull) calc(var(--split) - 0.5px), var(--ground-bear) calc(var(--split) + 0.5px));
+  }
+
+  .backdrop .bull {
+    width: calc(88 * var(--unit));
+    --stalk-x: -8vw;
+    --stalk-y: -16vh;
+  }
+
+  .backdrop .bear {
+    width: calc(72 * var(--unit));
+    --stalk-x: 8vw;
+    --stalk-y: 16vh;
+  }
+}
+
+/* A phone has a menu along the bottom as well, so the middle is the true middle again. */
+@media (max-aspect-ratio: 1/1) and (max-width: 40rem) {
+  .backdrop {
+    --split: calc(50% - 5.5 * var(--unit));
+    padding-bottom: 4rem;
+  }
 }
 
 .backdrop path {
@@ -1769,6 +1964,115 @@ tr.is-selected:hover td {
 .backdrop .t4 { --tone: var(--lo); }
 .backdrop .eye { --tone: var(--eye); }
 
+/* The opening, on every load: eyes in the dark, the animals drifting in like ghosts, a lunge at the centre, then the page.
+   It only moves and fades whole layers, which the graphics chip does without redrawing the artwork. */
+
+.beast-eye {
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+
+.beast-eye circle {
+  fill: url(#eye-glow);
+}
+
+.beast-eye path {
+  --tone: #ffffff;
+}
+
+html.intro body {
+  background: #050505;
+}
+
+html.intro .backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #050505;
+  animation: veil-lift 800ms ease-in 850ms both;
+}
+
+html.intro .beast {
+  z-index: 1;
+  will-change: translate, scale;
+  animation: beast-hunt 2300ms both;
+}
+
+html.intro .beast-body {
+  will-change: opacity;
+  animation: beast-appear 1500ms linear both;
+}
+
+html.intro .beast-eye {
+  display: block;
+  will-change: opacity;
+  animation: eye-glow 1700ms linear both;
+}
+
+html.intro .bear .beast-body,
+html.intro .bear .beast-eye {
+  animation-delay: 200ms;
+}
+
+html.intro .topbar,
+html.intro main,
+html.intro .site-footer {
+  pointer-events: none;
+  animation: page-in 450ms ease-out 1850ms both;
+}
+
+@keyframes veil-lift {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes beast-hunt {
+  0% {
+    translate: var(--stalk-x) var(--stalk-y);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.7, 1);
+  }
+  58% {
+    translate: calc(var(--stalk-x) * 0.55) calc(var(--stalk-y) * 0.55);
+    scale: 1;
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 0.4);
+  }
+  74% {
+    translate: calc(var(--stalk-x) * -0.16) calc(var(--stalk-y) * -0.16);
+    scale: 1.06;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  100% {
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+@keyframes beast-appear {
+  0%, 18% { opacity: 0; }
+  34% { opacity: 0.3; }
+  42% { opacity: 0.12; }
+  58% { opacity: 0.6; }
+  66% { opacity: 0.38; }
+  88%, 100% { opacity: 1; }
+}
+
+@keyframes eye-glow {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  20% { opacity: 0.3; }
+  27% { opacity: 1; }
+  66% { opacity: 1; }
+  86%, 100% { opacity: 0; }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media print, (forced-colors: active) {
   .backdrop {
     display: none;
@@ -1776,10 +2080,11 @@ tr.is-selected:hover td {
 }
 
 /* Text never sits on the background itself: it goes on a card, which lets the animals show through faintly.
-   The chart's card is almost solid, so nothing competes with the candles. */
+   The chart's card is a little more solid, so nothing competes with the candles. */
 
 .controls,
 .fundamentals,
+.movers,
 .secondary > section,
 .news-column,
 .ipo-tab {
@@ -1791,12 +2096,23 @@ tr.is-selected:hover td {
 }
 
 .chart-card {
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
 }
 
 @media (max-width: 60rem) {
+  .status-more {
+    display: none;
+  }
+
+  /* One column here, so the page's own order puts it straight after the sessions table. */
+  .movers {
+    grid-row: auto;
+    grid-column: auto;
+  }
+
   .primary,
   .secondary,
+  .mover-columns,
   .about-row,
   .issue-detail,
   .two-columns {
@@ -1805,15 +2121,12 @@ tr.is-selected:hover td {
 }
 
 @media (max-width: 40rem) {
+  /* The name takes two lines here, so the top bar still fits. */
   .brand-name {
-    font-size: 1rem;
-  }
-
-  /* A blur on the top bar would pin the menu inside it, so the bar goes solid here. */
-  .topbar {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: var(--surface);
+    max-width: 7.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.15;
+    white-space: normal;
   }
 
   /* The menu moves to the bottom of the screen, within reach of a thumb. */
@@ -1855,10 +2168,6 @@ tr.is-selected:hover td {
 
   .status {
     font-size: 0.75rem;
-  }
-
-  .status-more {
-    display: none;
   }
 
   .controls {

@@ -535,6 +535,7 @@ for (const symbol of targets) {
       pe: peReport.length ? toNumber(pe?.['SYMBOL P/E'] ?? '') : before?.profile?.pe ?? null,
       adjustedPe: peReport.length ? toNumber(pe?.['ADJUSTED P/E'] ?? '') : before?.profile?.adjustedPe ?? null,
     },
+    nifty500: tierOne.has(symbol) || undefined,
     financials: financials.get(symbol) ?? before?.financials ?? [],
     filings: notices
       ? (notices.filings.get(symbol) ?? []).sort(byDate).slice(0, MAX_FILINGS).map(({ date, category, text }) => ({ date, category, text }))

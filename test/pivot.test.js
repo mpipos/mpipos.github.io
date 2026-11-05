@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createMarket, instrumentFile } from '../lib/market.js';
+import { candlesFor, createMarket, groupBars, instrumentFile } from '../lib/market.js';
+import { collectMovers } from '../lib/movers.js';
 import { findDatasetProblems, hasCompletePrices, separateLateReports } from '../scripts/dataset-checks.js';
 import { bsePageUrl, parseBseRows } from '../scripts/sources/bse.js';
 import {
@@ -599,6 +600,119 @@ test('draws the chart on the selected session’s price basis, keeping actual pr
   const before = market.lookup('ABC', '2024-10-24').chart;
   assert.equal(before.bars[0].chartClose, 2550);
   assert.equal(before.bars[3].chartClose, 2640);
+});
+
+test('a time frame shows that many sessions, keeping some after an older one', async () => {
+  const market = await marketOf(stock());
+  const latest = market.lookup('ABC', '2024-10-31').chartFor(3);
+  assert.deepEqual(latest.bars.map((bar) => bar.date), ['2024-10-28', '2024-10-29', '2024-10-31']);
+  assert.equal(latest.selectedIndex, 2);
+
+  const older = market.lookup('ABC', '2024-10-25').chartFor(4);
+  assert.deepEqual(older.bars.map((bar) => bar.date), ['2024-10-24', '2024-10-25', '2024-10-28', '2024-10-29']);
+  assert.equal(older.selectedIndex, 1);
+
+  const everything = market.lookup('ABC', '2024-10-31').chartFor(Infinity);
+  assert.equal(everything.bars.length, 5);
+  assert.deepEqual(everything.rescaledFor, ['2024-10-28']);
+  assert.equal(market.lookup('ABC', '2024-10-29').chartFor(1).bars[0].date, '2024-10-29');
+});
+
+test('groups candles into weeks and months on the chart’s single price basis', async () => {
+  const { bars } = (await marketOf(stock())).lookup('ABC', '2024-10-29').chartFor(Infinity);
+  const [first, second] = groupBars(bars, 'week');
+  assert.deepEqual(
+    { date: first.date, open: first.chartOpen, high: first.chartHigh, low: first.chartLow, close: first.chartClose },
+    { date: '2024-10-25', open: 1250, high: 1350, low: 1200, close: 1320 },
+  );
+  assert.deepEqual(
+    { date: second.date, open: second.chartOpen, high: second.chartHigh, low: second.chartLow, close: second.chartClose },
+    { date: '2024-10-31', open: 1300, high: 1350, low: 1290, close: 1325 },
+  );
+  assert.equal(first.pivot, undefined);
+
+  const months = groupBars(bars, 'month');
+  assert.equal(months.length, 1);
+  assert.equal(months[0].chartOpen, 1250);
+  assert.equal(months[0].chartClose, 1325);
+  assert.equal(groupBars(bars, 'day'), bars);
+});
+
+test('uses the shortest candle that leaves room for all of them', async () => {
+  const { bars } = (await marketOf(stock())).lookup('ABC', '2024-10-31').chartFor(Infinity);
+  assert.equal(candlesFor(bars, 5).period, 'day');
+  assert.equal(candlesFor(bars, 2).period, 'week');
+  assert.equal(candlesFor(bars, 1).period, 'month');
+  assert.equal(candlesFor(bars, 1).bars.length, 1);
+});
+
+function mover(symbol, closes, overrides = {}) {
+  return {
+    symbol,
+    type: 'Stock',
+    decimals: 2,
+    days: ['2024-10-24', '2024-10-25', '2024-10-28'].slice(0, closes.length).map(day),
+    c: closes,
+    actions: [],
+    ...overrides,
+  };
+}
+
+test('ranks a day’s gainers and losers, largest first, with each stock’s close and change', () => {
+  const movers = collectMovers([
+    mover('UP5', [100, 105]),
+    mover('UP20', [100, 120]),
+    mover('DOWN10', [200, 180]),
+    mover('DOWN2', [100, 98]),
+    mover('FLAT', [100, 100]),
+  ]);
+  const { all } = movers.get('2024-10-25');
+  assert.deepEqual(all.gainers, [['UP20', 120, 20], ['UP5', 105, 5]]);
+  assert.deepEqual(all.losers, [['DOWN10', 180, -10], ['DOWN2', 98, -2]]);
+  assert.equal(all.count, 5);
+  assert.equal(movers.has('2024-10-24'), false);
+});
+
+test('leaves out moves that are not a real day’s trading', () => {
+  const movers = collectMovers([
+    mover('REAL', [100, 110]),
+    mover('SPLIT', [100, 50], { actions: [{ date: '2024-10-25', factor: 0.5 }] }),
+    mover('UNFLAGGED', [100, 300]),
+    mover('RELISTED', [100, 115], { days: ['2024-10-01', '2024-10-25'].map(day) }),
+  ]);
+  const { all } = movers.get('2024-10-25');
+  assert.deepEqual(all.gainers.map(([symbol]) => symbol), ['REAL']);
+  assert.deepEqual(all.losers, []);
+  assert.equal(all.count, 1);
+});
+
+test('keeps a stock that last traded a few days earlier, as over a long weekend', () => {
+  const movers = collectMovers([mover('WEEKEND', [100, 110], { days: ['2024-10-21', '2024-10-25'].map(day) })]);
+  assert.deepEqual(movers.get('2024-10-25').all.gainers, [['WEEKEND', 110, 10]]);
+});
+
+test('keeps only the top ten on each side, breaking ties by symbol so a rebuild gives the same list', () => {
+  const stocks = Array.from({ length: 13 }, (_, i) => mover(`S${String(i).padStart(2, '0')}`, [100, 120]));
+  const { gainers } = collectMovers(stocks).get('2024-10-25').all;
+  assert.equal(gainers.length, 10);
+  assert.deepEqual(gainers.slice(0, 2).map(([symbol]) => symbol), ['S00', 'S01']);
+  assert.equal(gainers.at(-1)[0], 'S09');
+});
+
+test('lists NIFTY 500 members separately from the whole market', () => {
+  const movers = collectMovers([mover('BIG', [100, 102], { nifty500: true }), mover('SMALL', [100, 120])]);
+  const { all, nifty500 } = movers.get('2024-10-25');
+  assert.deepEqual(all.gainers.map(([symbol]) => symbol), ['SMALL', 'BIG']);
+  assert.deepEqual(nifty500.gainers.map(([symbol]) => symbol), ['BIG']);
+  assert.equal(nifty500.count, 1);
+});
+
+test('gives the latest close on record, whichever date is selected', async () => {
+  const market = await marketOf(stock());
+  const latest = { date: '2024-10-31', close: 1325 };
+  assert.deepEqual(market.lookup('ABC', '2024-10-24').latest, latest);
+  assert.deepEqual(market.lookup('ABC', '2024-10-31').latest, latest);
+  assert.deepEqual(market.lookup('ABC', '2024-10-27').latest, latest);
 });
 
 test('flags only corporate actions after the selected session', async () => {

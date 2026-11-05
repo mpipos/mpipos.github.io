@@ -1,12 +1,19 @@
-// Candlesticks drawn to scale with a single pivot level. The sessions table beside it holds the same values.
+// Candlesticks or a closing-price line, drawn to scale with a single pivot level.
+import { candlesFor, weekOf } from '../lib/market.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MARGIN = { top: 12, right: 78, bottom: 26, left: 4 };
 const NARROW_WIDTH = 560;
-const NARROW_BEFORE = 24;
-const NARROW_AFTER = 8;
 const TICK_COUNT = 5;
 const MIN_LABEL_GAP = 46;
 const MAX_BODY_WIDTH = 14;
+const FEW_BARS = 5;
+const FEW_BARS_BODY_WIDTH = 36;
+const MIN_CANDLE_STEP = 3.5;
+const WEEK_LABELS_UP_TO = 31;
+const YEAR_LABELS_FROM_DAYS = 300;
+const PERIOD_PREFIX = { week: 'Week to ', month: 'Month to ' };
+const PERIOD_NOUNS = { day: 'session', week: 'week', month: 'month' };
 
 function svgEl(tag, attrs = {}, ...children) {
   const node = document.createElementNS(SVG_NS, tag);
@@ -35,24 +42,24 @@ function decimalsFor(step) {
   return 4;
 }
 
-export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatPrice, formatAxis, formatDate, formatShortDate, onSelect, animate }) {
+export function renderChart(host, { bars: allBars, selectedIndex, pivot, type, formatPrice, formatAxis, formatDate, formatShortDate, onSelect, animate }) {
   const width = host.clientWidth;
-  if (!width) return;
+  if (!width) return null;
   const narrow = width < NARROW_WIDTH;
-  const height = Math.max(narrow ? 280 : 340, host.clientHeight);
-
-  const first = narrow ? Math.max(0, selectedIndex - NARROW_BEFORE) : 0;
-  const last = narrow ? Math.min(allBars.length - 1, selectedIndex + NARROW_AFTER) : allBars.length - 1;
-  const bars = allBars.slice(first, last + 1);
-  const selected = selectedIndex - first;
+  const height = Math.max(narrow ? 280 : 300, host.clientHeight);
 
   const plotWidth = width - MARGIN.left - MARGIN.right;
   const plotHeight = height - MARGIN.top - MARGIN.bottom;
+  const isLine = type === 'line';
+  const selectedDate = allBars[selectedIndex].date;
+  // A line can carry every session. Candles need room, so long periods group them.
+  const { period, bars } = isLine ? { period: 'day', bars: allBars } : candlesFor(allBars, plotWidth / MIN_CANDLE_STEP);
+  const selected = bars.findIndex((bar) => bar.date >= selectedDate);
   const step = plotWidth / bars.length;
-  const bodyWidth = Math.max(3, Math.min(MAX_BODY_WIDTH, step * 0.62));
+  const bodyWidth = Math.max(3, Math.min(bars.length <= FEW_BARS ? FEW_BARS_BODY_WIDTH : MAX_BODY_WIDTH, step * 0.62));
 
-  const lows = bars.map((bar) => bar.chartLow);
-  const highs = bars.map((bar) => bar.chartHigh);
+  const lows = bars.map((bar) => (isLine ? bar.chartClose : bar.chartLow));
+  const highs = bars.map((bar) => (isLine ? bar.chartClose : bar.chartHigh));
   const rawMin = Math.min(...lows, pivot);
   const rawMax = Math.max(...highs, pivot);
   const padding = (rawMax - rawMin || rawMax * 0.01 || 1) * 0.06;
@@ -68,10 +75,12 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
     height,
     role: 'img',
     class: animate ? 'is-animated' : null,
-    'aria-label': `Candlestick chart of ${bars.length} sessions from ${formatDate(bars[0].date)} to ${formatDate(bars.at(-1).date)}, with the pivot level of ${formatPrice(pivot)}. The sessions table lists the same values.`,
+    'aria-label': `${isLine ? 'Line' : 'Candlestick'} chart of ${bars.length} ${PERIOD_NOUNS[period]}${bars.length === 1 ? '' : 's'} up to ${formatDate(bars.at(-1).date)}, with the pivot level of ${formatPrice(pivot)}. The sessions table lists the prices around the selected date.`,
   });
 
-  chart.append(svgEl('rect', { x: MARGIN.left + step * selected, y: MARGIN.top, width: step, height: plotHeight, fill: 'var(--band)', rx: 2 }));
+  const bandWidth = Math.max(step, 2);
+  // A lone session needs no marking out, and its band would fill the whole chart.
+  if (bars.length > 1) chart.append(svgEl('rect', { x: x(selected) - bandWidth / 2, y: MARGIN.top, width: bandWidth, height: plotHeight, fill: 'var(--band)', rx: 2 }));
 
   const { ticks, decimals } = niceTicks(yMin, yMax);
   for (const tick of ticks) {
@@ -86,7 +95,17 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
 
   chart.append(svgEl('line', { class: 'pivot-level', pathLength: 1, x1: MARGIN.left, x2: width - MARGIN.right, y1: pivotY, y2: pivotY, stroke: 'var(--pivot)', 'stroke-width': 2 }));
 
-  bars.forEach((bar, index) => {
+  // The line takes the colour of its overall direction across the period.
+  const lineColor = isLine ? (bars.at(-1).chartClose >= bars[0].chartClose ? 'var(--up)' : 'var(--down)') : null;
+  if (isLine) {
+    const points = bars.map((bar, index) => `${x(index).toFixed(1)} ${y(bar.chartClose).toFixed(1)}`);
+    const floor = MARGIN.top + plotHeight;
+    chart.append(
+      svgEl('path', { d: `M${points.join('L')}L${x(bars.length - 1).toFixed(1)} ${floor}L${x(0).toFixed(1)} ${floor}Z`, fill: lineColor, 'fill-opacity': 0.1 }),
+      svgEl('path', { class: 'price-line', pathLength: 1, d: `M${points.join('L')}`, fill: 'none', stroke: lineColor, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }),
+      svgEl('circle', { cx: x(selected), cy: y(bars[selected].chartClose), r: 4, fill: lineColor, stroke: 'var(--surface)', 'stroke-width': 2 }),
+    );
+  } else bars.forEach((bar, index) => {
     const isUp = bar.chartClose >= bar.chartOpen;
     const color = isUp ? 'var(--up)' : 'var(--down)';
     const top = y(Math.max(bar.chartOpen, bar.chartClose));
@@ -113,12 +132,17 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
 
   const selectedLabelX = x(selected);
   let lastLabelX = -Infinity;
+  // A short period is labelled by week. A long one adds the year, since months repeat.
+  const labelsWeeks = bars.length <= WEEK_LABELS_UP_TO;
+  const spanDays = (Date.parse(bars.at(-1).date) - Date.parse(bars[0].date)) / 86_400_000;
+  const monthFormat = new Intl.DateTimeFormat('en-GB', { month: 'short', year: spanDays > YEAR_LABELS_FROM_DAYS ? '2-digit' : undefined, timeZone: 'UTC' });
   bars.forEach((bar, index) => {
-    const isNewMonth = index > 0 && bar.date.slice(0, 7) !== bars[index - 1].date.slice(0, 7);
+    const previous = bars[index - 1];
+    const isNewTick = index > 0 && (labelsWeeks ? weekOf(bar.date) !== weekOf(previous.date) : bar.date.slice(0, 7) !== previous.date.slice(0, 7));
     const labelX = x(index);
-    if (!isNewMonth || labelX - lastLabelX < MIN_LABEL_GAP || Math.abs(labelX - selectedLabelX) < MIN_LABEL_GAP) return;
+    if (!isNewTick || labelX - lastLabelX < MIN_LABEL_GAP || Math.abs(labelX - selectedLabelX) < MIN_LABEL_GAP) return;
     const label = svgEl('text', { x: labelX, y: height - 8, 'text-anchor': 'middle', class: 'axis-label' });
-    label.textContent = new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' }).format(new Date(`${bar.date}T00:00:00Z`));
+    label.textContent = labelsWeeks ? formatShortDate(bar.date) : monthFormat.format(new Date(`${bar.date}T00:00:00Z`));
     chart.append(label);
     lastLabelX = labelX;
   });
@@ -128,7 +152,7 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
     'text-anchor': 'middle',
     class: 'axis-label is-selected',
   });
-  selectedLabel.textContent = formatShortDate(bars[selected].date);
+  selectedLabel.textContent = formatShortDate(selectedDate);
   chart.append(selectedLabel);
 
   const pillWidth = MARGIN.right - 2;
@@ -150,6 +174,8 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
 
   const crosshair = svgEl('line', { y1: MARGIN.top, y2: MARGIN.top + plotHeight, stroke: 'var(--muted)', 'stroke-width': 1, visibility: 'hidden' });
   chart.append(crosshair);
+  const hoverDot = isLine ? svgEl('circle', { r: 4, fill: lineColor, stroke: 'var(--surface)', 'stroke-width': 2, visibility: 'hidden' }) : null;
+  if (hoverDot) chart.append(hoverDot);
 
   const tip = document.createElement('div');
   tip.className = 'chart-tip';
@@ -162,17 +188,20 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
     crosshair.setAttribute('x1', x(index));
     crosshair.setAttribute('x2', x(index));
     crosshair.setAttribute('visibility', 'visible');
+    hoverDot?.setAttribute('cx', x(index));
+    hoverDot?.setAttribute('cy', y(bar.chartClose));
+    hoverDot?.setAttribute('visibility', 'visible');
 
     const dateLine = document.createElement('div');
     dateLine.className = 'tip-date';
-    dateLine.textContent = formatDate(bar.date);
+    dateLine.textContent = `${PERIOD_PREFIX[bar.period] ?? ''}${formatDate(bar.date)}`;
     const rows = [
       ['Open', bar.open],
       ['High', bar.high],
       ['Low', bar.low],
       ['Close', bar.close],
       ['Pivot', bar.pivot],
-    ].map(([label, value]) => {
+    ].filter(([, value]) => value !== undefined).map(([label, value]) => {
       const row = document.createElement('div');
       row.className = 'tip-row';
       const strong = document.createElement('strong');
@@ -192,6 +221,7 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
   function hide() {
     tip.hidden = true;
     crosshair.setAttribute('visibility', 'hidden');
+    hoverDot?.setAttribute('visibility', 'hidden');
   }
 
   const indexAt = (clientX) => {
@@ -217,4 +247,5 @@ export function renderChart(host, { bars: allBars, selectedIndex, pivot, formatP
   host.onblur = hide;
 
   host.replaceChildren(chart, tip);
+  return { period, lineColor };
 }

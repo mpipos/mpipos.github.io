@@ -27,10 +27,33 @@ const SOURCE_NAMES = { nse: 'Official NSE data', bse: 'Official BSE data', yahoo
 const SOURCE_CREDITS = { nse: 'NSE daily reports', bse: 'BSE daily reports', yahoo: 'Yahoo Finance' };
 // Long enough to cover India's longest market closures, so this only appears if updates have really stopped.
 const STALE_AFTER_DAYS = 6;
+const CHART_TYPES = [
+  { value: 'candles', label: 'Candles' },
+  { value: 'line', label: 'Line' },
+];
+// Trading sessions in each time frame.
+const CHART_FRAMES = [
+  { value: '1D', label: '1D', sessions: 1 },
+  { value: '1W', label: '1W', sessions: 5 },
+  { value: '1M', label: '1M', sessions: 21 },
+  { value: '3M', label: '3M', sessions: 63 },
+  { value: '6M', label: '6M', sessions: 125 },
+  { value: '1Y', label: '1Y', sessions: 250 },
+  { value: '3Y', label: '3Y', sessions: 750 },
+];
+const CANDLE_LEGEND = { day: 'Closed', week: 'Week closed', month: 'Month closed' };
+const MOVER_GROUPS = [
+  { value: 'all', label: 'All stocks' },
+  { value: 'nifty500', label: 'NIFTY 500' },
+];
 
 let instrument = null; // { symbol, label }
 let current = null;
 let drawChart = null;
+let chosenType = savedChoice('chartType', CHART_TYPES, 'candles');
+let chosenFrame = savedChoice('chartFrame', CHART_FRAMES, '3M');
+let chosenMoverGroup = savedChoice('moverGroup', MOVER_GROUPS, 'all');
+const moversByDate = new Map();
 let searchTimer = null;
 let options = [];
 let activeOption = -1;
@@ -41,6 +64,24 @@ let shownPivot = null;
 let iposLoaded = false;
 
 const displaySymbol = (symbol) => symbol.replace(/^BSE:/, '');
+
+function savedChoice(key, options, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    if (options.some(({ value }) => value === saved)) return saved;
+  } catch {
+    // Without storage the page starts from the default.
+  }
+  return fallback;
+}
+
+function saveChoice(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Without storage the choice still lasts until the page closes.
+  }
+}
 
 function setBusy(busy) {
   clearTimeout(progressTimer);
@@ -67,7 +108,7 @@ function tweenPivot(node, from, to, format) {
 /* Pivot panel */
 
 function renderHero(data) {
-  const { instrument: item, session, date } = data;
+  const { instrument: item, session, date, latest } = data;
   const price = (value) => formatNumber(value, item.currency, item.decimals);
 
   const readingText =
@@ -99,6 +140,12 @@ function renderHero(data) {
       { class: 'hero-head' },
       el('div', {}, el('h2', {}, item.name), el('p', { class: 'hero-meta' }, metaLine)),
       el('span', { class: 'source-tag' }, SOURCE_NAMES[item.source]),
+    ),
+    el(
+      'div',
+      {},
+      el('p', { class: 'pivot-label' }, el('strong', {}, 'Current price'), `, last close on ${formatDate(latest.date)}`),
+      el('p', { class: 'current-price' }, price(latest.close)),
     ),
     el(
       'div',
@@ -167,7 +214,7 @@ function renderNoSession(data) {
 
 /* Chart */
 
-function legendKey(kind) {
+function legendKey(kind, color) {
   const node = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   node.setAttribute('width', '14');
   node.setAttribute('height', '14');
@@ -175,12 +222,13 @@ function legendKey(kind) {
   node.setAttribute('aria-hidden', 'true');
   if (kind === 'up') node.innerHTML = '<rect x="3" y="2" width="8" height="10" rx="1" fill="none" stroke="var(--up)" stroke-width="1.5"/>';
   else if (kind === 'down') node.innerHTML = '<rect x="3" y="2" width="8" height="10" rx="1" fill="var(--down)"/>';
+  else if (kind === 'line') node.innerHTML = `<path d="M0 7h14" stroke="${color}" stroke-width="2"/>`;
   else node.innerHTML = '<path d="M0 7h14" stroke="var(--pivot)" stroke-width="2"/>';
   return node;
 }
 
 function renderChartCard(data, animate) {
-  const { instrument: item, session, chart } = data;
+  const { instrument: item, session } = data;
   const host = el('div', {
     class: 'chart-host',
     tabindex: '0',
@@ -189,12 +237,17 @@ function renderChartCard(data, animate) {
     'aria-label': 'Price chart. Use the left and right arrow keys to read sessions, and Enter to choose one.',
   });
 
+  const legend = el('ul', { class: 'legend' });
+  const note = el('p', { class: 'chart-note' });
+
   let animateNext = animate;
   drawChart = () => {
-    renderChart(host, {
-      bars: chart.bars,
-      selectedIndex: chart.selectedIndex,
+    const view = data.chartFor(CHART_FRAMES.find(({ value }) => value === chosenFrame).sessions);
+    const drawn = renderChart(host, {
+      bars: view.bars,
+      selectedIndex: view.selectedIndex,
       pivot: session.pivot,
+      type: chosenType,
       formatPrice: (value) => formatNumber(value, item.currency, item.decimals),
       formatAxis: (value, decimals) => formatNumber(value, item.currency, decimals),
       formatDate,
@@ -203,6 +256,17 @@ function renderChartCard(data, animate) {
       animate: animateNext,
     });
     animateNext = false;
+    if (!drawn) return;
+
+    const candleWord = CANDLE_LEGEND[drawn.period];
+    legend.replaceChildren(
+      ...(chosenType === 'line'
+        ? [el('li', {}, legendKey('line', drawn.lineColor), 'Closing price')]
+        : [el('li', {}, legendKey('up'), `${candleWord} up`), el('li', {}, legendKey('down'), `${candleWord} down`)]),
+      el('li', {}, legendKey('pivot'), `Pivot for ${formatShortDate(data.date)}`),
+    );
+    note.hidden = !view.rescaledFor.length;
+    note.textContent = `A corporate action on ${view.rescaledFor.map(formatPlainDate).join(' and ')} falls in this period. The chart is rescaled to this session's price basis, and the table shows the prices actually traded.`;
   };
 
   return el(
@@ -210,24 +274,31 @@ function renderChartCard(data, animate) {
     { class: 'chart-card' },
     el(
       'div',
-      { class: 'chart-head' },
-      el('h3', {}, 'Price around this session'),
-      el(
-        'ul',
-        { class: 'legend' },
-        el('li', {}, legendKey('up'), 'Closed up'),
-        el('li', {}, legendKey('down'), 'Closed down'),
-        el('li', {}, legendKey('pivot'), `Pivot for ${formatShortDate(data.date)}`),
-      ),
+      { class: 'chart-tools' },
+      segmented({
+        label: 'Chart type',
+        options: CHART_TYPES,
+        chosen: chosenType,
+        onChoose: (value) => {
+          chosenType = value;
+          saveChoice('chartType', value);
+          drawChart?.();
+        },
+      }),
+      segmented({
+        label: 'Time frame',
+        options: CHART_FRAMES,
+        chosen: chosenFrame,
+        onChoose: (value) => {
+          chosenFrame = value;
+          saveChoice('chartFrame', value);
+          drawChart?.();
+        },
+      }),
     ),
+    el('div', { class: 'chart-head' }, el('h3', {}, 'Price around this session'), legend),
     host,
-    chart.rescaledFor.length
-      ? el(
-          'p',
-          { class: 'chart-note' },
-          `A corporate action on ${chart.rescaledFor.map(formatPlainDate).join(' and ')} falls in this period. Candles are rescaled to this session's price basis, and the table shows the prices actually traded.`,
-        )
-      : null,
+    note,
   );
 }
 
@@ -397,6 +468,107 @@ function renderSessions(data) {
   return el('section', {}, sectionHead('Pivot by session', 'Choose a date to see its pivot'), wrap);
 }
 
+/* Top gainers and losers: the whole market on the chosen date, whichever stock is open above. */
+
+function loadMovers(date) {
+  if (!moversByDate.has(date)) {
+    const request = fetch(dataUrl(`m/${date}.json`)).then((response) => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+      return response.json();
+    });
+    // A failed download is forgotten, so the next look at this date tries again.
+    moversByDate.set(date, request);
+    request.catch(() => moversByDate.delete(date));
+  }
+  return moversByDate.get(date);
+}
+
+function openMover(symbol) {
+  const entry = market.entry(symbol);
+  selectInstrument(symbol, entry.label ?? entry.name);
+  window.scrollTo({ top: 0, behavior: prefersMotion() ? 'smooth' : 'auto' });
+}
+
+function moverRow([symbol, close, change]) {
+  const entry = market.entry(symbol);
+  return el(
+    'li',
+    {},
+    el(
+      'button',
+      { type: 'button', class: 'mover', onclick: () => openMover(symbol) },
+      el('span', { class: 'mover-name' }, el('span', {}, entry?.name ?? symbol), el('small', {}, `${displaySymbol(symbol)} · ${entry?.exchange ?? ''}`)),
+      el('span', { class: 'mover-close' }, formatNumber(close)),
+      el('span', { class: `mover-change ${directionClass(change) ?? ''}` }, `${formatSigned(change)}%`),
+    ),
+  );
+}
+
+function moverList(title, rows) {
+  return el(
+    'div',
+    { class: 'mover-column' },
+    el('h4', {}, title),
+    rows.length ? el('ol', { class: 'mover-list' }, ...rows.map(moverRow)) : el('p', { class: 'section-note' }, 'None on this day.'),
+  );
+}
+
+function renderMovers(date) {
+  const note = el('p', { class: 'section-note' }, formatPlainDate(date));
+  const body = el('div', { class: 'movers-body is-loading' });
+  let day = null;
+
+  const draw = () => {
+    if (!day) return;
+    const group = day[chosenMoverGroup];
+    note.textContent = `${formatPlainDate(date)}, from ${formatNumber(group.count, 'INR', 0)} stocks that traded`;
+    body.classList.remove('is-loading');
+    body.replaceChildren(
+      el('div', { class: 'mover-columns' }, moverList('Top gainers', group.gainers), moverList('Top losers', group.losers)),
+      el('p', { class: 'section-note mover-note' }, 'Closing price against the previous close. Leaves out corporate-action days, moves above 40%, and stocks that had not traded for over a week.'),
+    );
+  };
+
+  const message = (text) => {
+    body.classList.remove('is-loading');
+    body.replaceChildren(el('p', { class: 'mover-message' }, text));
+  };
+
+  const closed = !market.isOpen('NSE', date);
+  if (closed) message(`The Indian market was closed on ${formatPlainDate(date)}, so there are no gainers or losers.`);
+  else {
+    loadMovers(date)
+      .then((loaded) => {
+        if (!loaded) return message(`The exchanges' reports for ${formatPlainDate(date)} are not in yet.`);
+        day = loaded;
+        draw();
+      })
+      .catch(() => message('Could not load the gainers and losers. Choose the date again to retry.'));
+  }
+
+  return el(
+    'section',
+    { class: 'movers' },
+    el(
+      'div',
+      { class: 'movers-head' },
+      el('div', {}, el('h3', { class: 'section-title' }, 'Top gainers and losers'), note),
+      segmented({
+        label: 'Stocks to compare',
+        options: MOVER_GROUPS,
+        chosen: chosenMoverGroup,
+        onChoose: (value) => {
+          chosenMoverGroup = value;
+          saveChoice('moverGroup', value);
+          draw();
+        },
+      }),
+    ),
+    body,
+  );
+}
+
 /* News and exchange notices */
 
 function renderUpcoming(item) {
@@ -528,6 +700,7 @@ function render({ fresh = false } = {}) {
       'div',
       { class: 'secondary' },
       session ? renderSessions(data) : null,
+      renderMovers(dateInput.value),
       el('div', { class: 'news-column' }, renderUpcoming(item), renderNews(item), renderFilings(item)),
     ),
   );
@@ -735,7 +908,7 @@ function showView(name) {
       else link.removeAttribute('aria-current');
     }
     moveMenuIndicator();
-    document.title = name === 'ipos' ? 'IPOs · Pivot Calculator' : 'Pivot Calculator';
+    document.title = name === 'ipos' ? 'IPOs · Market Pivots and IPOs' : 'Market Pivots and IPOs';
     window.scrollTo({ top: 0 });
   });
   if (name === 'ipos') loadIpos();
