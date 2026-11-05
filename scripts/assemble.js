@@ -8,7 +8,7 @@ const dist = new URL('../dist/', import.meta.url);
 const site = new URL('../.cache/site/', import.meta.url);
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap';
-const FAVICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#10265f"/><path d="M5 16h22" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M11 8v7M11 19v5M21 6v3M21 13v13" stroke="#fff" stroke-opacity=".62" stroke-width="2.5" stroke-linecap="round"/></svg>')}`;
+const FAVICON = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#111111"/><path d="M5 16h22" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M11 8v7M11 19v5M21 6v3M21 13v13" stroke="#fff" stroke-opacity=".62" stroke-width="2.5" stroke-linecap="round"/></svg>')}`;
 // Runs before the first paint, so a saved theme never flashes the wrong colours.
 const THEME_SCRIPT = `try{const t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch{}`;
 
@@ -42,7 +42,7 @@ const page = `<!doctype html>
 ${await read('page/styles.css')}</style>
 </head>
 <body>
-${await read('page/body.html')}
+${await read('page/backdrop.html')}${await read('page/body.html')}
 <script type="application/json" id="market-data">${data}</script>
 <script type="module">
 ${script}</script>

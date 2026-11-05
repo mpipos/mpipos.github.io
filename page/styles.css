@@ -1,35 +1,42 @@
-/* Layout: an app shell with one bold cobalt panel in each view; everything else stays quiet on the page ground. */
+/* Layout: an app shell in black, white and grey, over a split background with a light bull and a dark bear. Green and red are kept for prices going up and down. */
 :root {
   color-scheme: light;
-  --bg: #eff2f7;
+  --bg: #8a8a8a;
   --surface: #ffffff;
-  --surface-2: #f6f8fb;
-  --ink: #0f1728;
-  --ink-2: #3f4b64;
-  --muted: #5a667e;
-  --line: #d8dee9;
-  --grid: #e6eaf1;
-  --accent: #2356d9;
+  --surface-2: #f3f3f3;
+  --card: rgb(255 255 255 / 88%);
+  --ink: #0e0e0e;
+  --ink-2: #2f2f2f;
+  --muted: #4d4d4d;
+  --line: #cdcdcd;
+  --grid: #e3e3e3;
+  --accent: #111111;
   --accent-ink: #ffffff;
-  --accent-soft: #e3ebfd;
-  --band: #e8eefc;
-  --hero: #10265f;
-  --hero-2: #1a3579;
+  --accent-soft: #e4e4e4;
+  --band: #e6e6e6;
+  --hero: #0f0f0f;
+  --hero-2: #262626;
   --on-hero: #ffffff;
-  --on-hero-2: #c3d0ee;
-  --on-hero-rule: #4a64a6;
+  --on-hero-2: #c9c9c9;
+  --on-hero-rule: #5a5a5a;
   --up: #0b8f6b;
   --down: #d63f31;
-  --pivot: #2356d9;
+  --pivot: #111111;
   --on-pivot: #ffffff;
-  --up-text: #0a7458;
+  --up-text: #096a50;
   --down-text: #b92f23;
   --warn-bg: #fdf1d9;
   --warn-ink: #5f4200;
-  --shadow: 0 1px 2px rgb(16 38 95 / 6%), 0 10px 30px rgb(16 38 95 / 7%);
-  --shadow-lift: 0 2px 4px rgb(16 38 95 / 8%), 0 16px 40px rgb(16 38 95 / 13%);
-  --glass: rgb(255 255 255 / 78%);
-  --hero-glow: rgb(96 140 255 / 34%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 10px 30px rgb(0 0 0 / 14%);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 12%), 0 16px 40px rgb(0 0 0 / 20%);
+  --glass: rgb(255 255 255 / 93%);
+  --hero-glow: rgb(255 255 255 / 13%);
+  --ground-bull: #2b2b2b;
+  --ground-bear: #dadada;
+  --bull-hi: #ffffff;
+  --bull-lo: #c4c4c4;
+  --bear-hi: #464646;
+  --bear-lo: #0a0a0a;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --sans: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
@@ -37,69 +44,83 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a0f1b;
-    --surface: #131b2c;
-    --surface-2: #182236;
-    --ink: #e9eef8;
-    --ink-2: #bac5da;
-    --muted: #97a4bc;
-    --line: #2a354b;
-    --grid: #212b3e;
-    --accent: #88a8ff;
-    --accent-ink: #0b1430;
-    --accent-soft: #1d2b4e;
-    --band: #1c2740;
-    --hero: #1b3a8a;
-    --hero-2: #254596;
-    --on-hero: #ffffff;
-    --on-hero-2: #cfdaf5;
-    --on-hero-rule: #5f7cc4;
+    --bg: #2a2a2a;
+    --surface: #161616;
+    --surface-2: #222222;
+    --card: rgb(18 18 18 / 88%);
+    --ink: #f2f2f2;
+    --ink-2: #d0d0d0;
+    --muted: #ababab;
+    --line: #3a3a3a;
+    --grid: #343434;
+    --accent: #f2f2f2;
+    --accent-ink: #111111;
+    --accent-soft: #303030;
+    --band: #2c2c2c;
+    --hero: #f0f0f0;
+    --hero-2: #dcdcdc;
+    --on-hero: #0c0c0c;
+    --on-hero-2: #3d3d3d;
+    --on-hero-rule: #a6a6a6;
     --up: #1e9c78;
     --down: #e55b4b;
-    --pivot: #5a82ec;
-    --on-pivot: #ffffff;
+    --pivot: #f2f2f2;
+    --on-pivot: #111111;
     --up-text: #52d3aa;
     --down-text: #ff9284;
     --warn-bg: #352b10;
     --warn-ink: #f1d68d;
     --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 10px 30px rgb(0 0 0 / 30%);
     --shadow-lift: 0 2px 4px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
-    --glass: rgb(19 27 44 / 76%);
-    --hero-glow: rgb(120 160 255 / 30%);
+    --glass: rgb(22 22 22 / 93%);
+    --hero-glow: rgb(0 0 0 / 7%);
+    --ground-bull: #141414;
+    --ground-bear: #8e8e8e;
+    --bull-hi: #e6e6e6;
+    --bull-lo: #a2a2a2;
+    --bear-hi: #2e2e2e;
+    --bear-lo: #000000;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0f1b;
-  --surface: #131b2c;
-  --surface-2: #182236;
-  --ink: #e9eef8;
-  --ink-2: #bac5da;
-  --muted: #97a4bc;
-  --line: #2a354b;
-  --grid: #212b3e;
-  --accent: #88a8ff;
-  --accent-ink: #0b1430;
-  --accent-soft: #1d2b4e;
-  --band: #1c2740;
-  --hero: #1b3a8a;
-  --hero-2: #254596;
-  --on-hero: #ffffff;
-  --on-hero-2: #cfdaf5;
-  --on-hero-rule: #5f7cc4;
+  --bg: #2a2a2a;
+  --surface: #161616;
+  --surface-2: #222222;
+  --card: rgb(18 18 18 / 88%);
+  --ink: #f2f2f2;
+  --ink-2: #d0d0d0;
+  --muted: #ababab;
+  --line: #3a3a3a;
+  --grid: #343434;
+  --accent: #f2f2f2;
+  --accent-ink: #111111;
+  --accent-soft: #303030;
+  --band: #2c2c2c;
+  --hero: #f0f0f0;
+  --hero-2: #dcdcdc;
+  --on-hero: #0c0c0c;
+  --on-hero-2: #3d3d3d;
+  --on-hero-rule: #a6a6a6;
   --up: #1e9c78;
   --down: #e55b4b;
-  --pivot: #5a82ec;
-  --on-pivot: #ffffff;
+  --pivot: #f2f2f2;
+  --on-pivot: #111111;
   --up-text: #52d3aa;
   --down-text: #ff9284;
   --warn-bg: #352b10;
   --warn-ink: #f1d68d;
   --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 10px 30px rgb(0 0 0 / 30%);
   --shadow-lift: 0 2px 4px rgb(0 0 0 / 40%), 0 16px 40px rgb(0 0 0 / 45%);
-  --glass: rgb(19 27 44 / 76%);
-  --hero-glow: rgb(120 160 255 / 30%);
+  --glass: rgb(22 22 22 / 93%);
+  --hero-glow: rgb(0 0 0 / 7%);
+  --ground-bull: #141414;
+  --ground-bear: #8e8e8e;
+  --bull-hi: #e6e6e6;
+  --bull-lo: #a2a2a2;
+  --bear-hi: #2e2e2e;
+  --bear-lo: #000000;
   color-scheme: dark;
 }
 
@@ -223,7 +244,7 @@ main,
   left: 0;
   border-radius: 0.5625rem;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgb(16 38 95 / 16%);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
   transition: transform 340ms var(--ease), width 340ms var(--ease);
 }
 
@@ -299,7 +320,7 @@ main,
 /* Controls */
 
 main {
-  padding-block: 1.5rem 3rem;
+  padding-block: clamp(7.5rem, min(32vw, 20vh), 14rem) 3rem;
 }
 
 .controls {
@@ -486,7 +507,7 @@ button {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
-  background: var(--surface);
+  background: var(--card);
   color: var(--ink);
   text-align: left;
   transition: border-color 200ms ease, transform 220ms var(--ease), box-shadow 220ms var(--ease), background-color 200ms ease;
@@ -756,7 +777,7 @@ button {
   padding: clamp(1rem, 2.5vw, 1.25rem);
   border: 1px solid var(--line);
   border-radius: 1.25rem;
-  background: var(--surface);
+  background: var(--card);
   box-shadow: var(--shadow);
 }
 
@@ -992,7 +1013,7 @@ button {
   top: 50%;
   width: 16px;
   height: 16px;
-  border: 2px solid var(--bg);
+  border: 2px solid var(--surface);
   border-radius: 50%;
   background: var(--accent);
   transform: translate(-50%, -50%);
@@ -1197,7 +1218,7 @@ tr.is-selected:hover td {
 
 .site-footer {
   border-top: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--card);
 }
 
 .footer-inner {
@@ -1401,7 +1422,7 @@ tr.is-selected:hover td {
   padding: 1rem 1.125rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: var(--surface);
+  background: var(--card);
 }
 
 .notice p {
@@ -1424,7 +1445,7 @@ tr.is-selected:hover td {
   padding: clamp(1rem, 2.5vw, 1.375rem);
   border: 1px solid var(--line);
   border-radius: 1.25rem;
-  background: var(--surface);
+  background: var(--card);
   box-shadow: var(--shadow);
 }
 
@@ -1696,6 +1717,82 @@ tr.is-selected:hover td {
 }
 
 /* Smaller screens */
+
+/* The background: one half dark with a light bull, the other light with a dark bear. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 4rem;
+  overflow: hidden;
+  background: linear-gradient(100deg, var(--ground-bull) 49.9%, var(--ground-bear) 50.1%);
+  pointer-events: none;
+}
+
+.backdrop svg {
+  flex: 0 0 50%;
+  width: 50%;
+  height: auto;
+  overflow: visible;
+  /* The whole scene tips one way: the bull charges uphill, the bear lunges downhill. */
+  transform: rotate(-6deg) scale(0.96);
+}
+
+.backdrop .bull {
+  /* Lifted a little, so its eye clears the first card. */
+  transform: translateY(-4.5%) rotate(-6deg) scale(0.96);
+  --hi: var(--bull-hi);
+  --lo: var(--bull-lo);
+  --eye: var(--ground-bull);
+}
+
+.backdrop .bear {
+  --hi: var(--bear-hi);
+  --lo: var(--bear-lo);
+  --eye: var(--ground-bear);
+}
+
+.backdrop path {
+  fill: var(--tone);
+  stroke: var(--tone);
+  stroke-width: 0.7;
+  stroke-linejoin: round;
+}
+
+.backdrop .t0 { --tone: var(--hi); }
+.backdrop .t1 { --tone: color-mix(in srgb, var(--hi) 75%, var(--lo)); }
+.backdrop .t2 { --tone: color-mix(in srgb, var(--hi) 50%, var(--lo)); }
+.backdrop .t3 { --tone: color-mix(in srgb, var(--hi) 25%, var(--lo)); }
+.backdrop .t4 { --tone: var(--lo); }
+.backdrop .eye { --tone: var(--eye); }
+
+@media print, (forced-colors: active) {
+  .backdrop {
+    display: none;
+  }
+}
+
+/* Text never sits on the background itself: it goes on a card, which lets the animals show through faintly.
+   The chart's card is almost solid, so nothing competes with the candles. */
+
+.controls,
+.fundamentals,
+.secondary > section,
+.news-column,
+.ipo-tab {
+  padding: clamp(1rem, 2.5vw, 1.25rem);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.chart-card {
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
 
 @media (max-width: 60rem) {
   .primary,
