@@ -6,7 +6,7 @@ Pick any stock or index on the Indian market and a trading day to get its pivot 
 Pivot = (Open + High + Close) / 3
 ```
 
-The live site is at https://harshbhushandubey.github.io/pivot-calculator/
+The live site is at https://mpipos.github.io/
 
 ## Automatic updates
 
