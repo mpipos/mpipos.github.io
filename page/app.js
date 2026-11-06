@@ -535,7 +535,8 @@ function renderMovers(date) {
     body.replaceChildren(el('p', { class: 'mover-message' }, text));
   };
 
-  const closed = !market.isOpen('NSE', date);
+  // A date past this page's calendar is newer than the page, not a holiday.
+  const closed = date <= market.maxDate && !market.isOpen('NSE', date);
   if (closed) message(`The Indian market was closed on ${formatPlainDate(date)}, so there are no gainers or losers.`);
   else {
     loadMovers(date)
@@ -740,11 +741,12 @@ async function showCurrent({ fresh = false } = {}) {
     if (token !== loadToken) return;
     setBusy(false);
   }
+  const item = await market.load(symbol);
+  const latest = isoDay(item.days.at(-1));
+  // A copy of the page saved before an update can meet newer data files, so their latest date has to stay choosable.
+  if (latest > dateInput.max) dateInput.max = latest;
   // Until someone picks a date, each stock opens on its own latest session, as thinly traded ones may not have traded today.
-  if (!dateTouched) {
-    const item = await market.load(symbol);
-    dateInput.value = isoDay(item.days.at(-1));
-  }
+  if (!dateTouched) dateInput.value = latest;
   transition(() => render({ fresh }));
 }
 
