@@ -10,8 +10,9 @@ The live site is at https://mpipos.github.io/
 
 ## Automatic updates
 
-GitHub rebuilds and publishes the page twice a day, using `.github/workflows/update.yml`:
+GitHub rebuilds and publishes the page three times a day, using `.github/workflows/update.yml`:
 
+- 16:15 India time, shortly after the market closes.
 - 21:15 India time, after NSE publishes the day's reports.
 - 07:45 India time, after US markets close.
 

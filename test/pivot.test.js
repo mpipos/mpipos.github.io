@@ -15,6 +15,7 @@ import {
   summariseListings,
 } from '../scripts/sources/ipo.js';
 import { parseSebiList, splitFilingTitle } from '../scripts/sources/sebi.js';
+import { closedSessionDate, parseLiveIndices, parseLiveStocks } from '../scripts/sources/nse-live.js';
 import { pivotPoint } from '../lib/pivot.js';
 import { decodeEntities, parseHeadlines } from '../scripts/sources/news.js';
 import {
@@ -805,4 +806,29 @@ test('search finds names, symbols and button labels, ranking the best match firs
   assert.deepEqual(symbols('titan'), ['TITAN', 'BSE:TITAN']);
   assert.deepEqual(symbols('zzqqxx'), []);
   assert.deepEqual(symbols('   '), []);
+});
+
+test('live NSE data counts only once the session has closed', () => {
+  assert.equal(closedSessionDate('12-Nov-2026 15:30'), '2026-11-12');
+  assert.equal(closedSessionDate('12-Nov-2026 11:02'), null);
+  assert.equal(parseLiveIndices({ timestamp: '12-Nov-2026 11:02', data: [] }).date, null);
+  const { date, rows } = parseLiveIndices({
+    timestamp: '12-Nov-2026 15:30',
+    data: [{ index: 'NIFTY 50', open: 10, high: 12, low: 9, last: 11, pe: '20.5', pb: '3', dy: '1.4' }, { index: 'BAD', open: 0 }],
+  });
+  assert.equal(date, '2026-11-12');
+  assert.deepEqual(rows.get('nifty 50'), { open: 10, high: 12, low: 9, close: 11, pe: 20.5, pb: 3, dy: 1.4 });
+  assert.equal(rows.size, 1);
+});
+
+test('live stock rows skip the index row and incomplete prices', () => {
+  const rows = parseLiveStocks({
+    data: [
+      { symbol: 'NIFTY 500', priority: 1, open: 1, dayHigh: 1, dayLow: 1, lastPrice: 1 },
+      { symbol: 'TCS', priority: 0, open: 100, dayHigh: 110, dayLow: 95, lastPrice: 105, totalTradedVolume: 5000 },
+      { symbol: 'XYZ', priority: 0, open: 0, dayHigh: 1, dayLow: 1, lastPrice: 1 },
+    ],
+  });
+  assert.deepEqual([...rows.keys()], ['TCS']);
+  assert.equal(rows.get('TCS').close, 105);
 });
