@@ -10,9 +10,6 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-# The page is built from the market data on this computer. The first time, that data is collected, which takes a while.
-if [ ! -f dist/index.html ]; then
-  if [ -f .cache/site/meta.json ]; then npm run assemble; else npm run build; fi || { read -k 1 "?Building the site failed. Press any key to close."; exit 1; }
-fi
-
-npm run live
+# The pages and the day's official data come from the published site, so nothing needs building here.
+# It stops by itself at 4 PM, after the market's close, unless started later than that.
+npm run live -- --until 16:00

@@ -10,7 +10,8 @@
     "assemble": "node scripts/assemble.js",
     "build": "npm run collect && npm run assemble",
     "preview": "node scripts/preview.js",
-    "live": "node scripts/live.js"
+    "live": "node scripts/live.js",
+    "automate": "node scripts/automate.js"
   },
   "engines": {
     "node": ">=18"

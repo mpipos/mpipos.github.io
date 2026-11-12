@@ -7,9 +7,6 @@ on:
     - cron: '45 15 * * *' # 21:15 in India, after NSE publishes the day's reports
     - cron: '15 2 * * *' # 07:45 in India, after US markets close
   workflow_dispatch:
-  # Sent at 21:00 India time by a Claude routine, because GitHub starts the scheduled runs hours late.
-  repository_dispatch:
-    types: [update-site]
 
 permissions:
   actions: write

@@ -15,7 +15,7 @@ GitHub rebuilds and publishes the page twice a day, using `.github/workflows/upd
 - 21:15 India time, after NSE publishes the day's reports.
 - 07:45 India time, after US markets close.
 
-A Claude routine also asks GitHub for an update at 21:00 India time on weekdays, because GitHub often starts its scheduled runs hours late.
+`npm run automate` also has your Mac start an update at 21:00 India time on weekdays, because GitHub often starts its scheduled runs hours late.
 
 To update it straight away, open the project's **Actions** tab on GitHub, choose **Update the site**, then **Run workflow**.
 
@@ -23,26 +23,19 @@ If an update fails, the live page stays as it was and GitHub emails you. When on
 
 ## Personal live mode (Zerodha Kite Connect)
 
-The published site shows official end-of-day data. On your own computer, `npm run live` shows the same pages with live prices from your own Kite Connect account: the index row, the NIFTY 50 expected range, both heatmaps, the open stock's live price with today's pivot so far, and live top gainers and losers.
+The published site shows official end-of-day data to everyone. On your own Mac it can show live prices from your own Kite Connect account: the index row, the NIFTY 50 expected range, both heatmaps, the open stock's live price with today's pivot so far, and live top gainers and losers.
 
-Kite's terms say its live data "cannot be displayed to the public at large", so this runs only on your computer (http://127.0.0.1:4174) and is never published. It only reads prices and never places orders.
+Kite's terms say its live data "cannot be displayed to the public at large", and allow it only in a private interface for your own use. So the live prices come from a small server that runs only on your Mac, answers only your Mac's browser, and is never published or shared. It only reads prices and never places orders.
 
-It needs a Kite Connect plan with live streaming (Connect, ₹500 a month). If you already have one for your own trading code, the live mode can share it at no extra cost by reusing that code's daily access token, which also avoids a second login.
+**Start it:** double-click **Start live mode.command**. The first time it asks for your Kite Connect API key (from the app your algo uses, at developers.kite.trade). It opens http://127.0.0.1:4174, and stops by itself at 4 PM.
 
-**The simple way:** double-click **Start live mode.command** in this folder (or run `npm run live`).
+**Today's token:** the live mode reuses the access token your algo gets each morning, so it needs no second plan or login. Either paste it into the box at the top of the page each morning, or let your algo save it to a file and add `KITE_ACCESS_TOKEN_FILE=/path/to/that/file` to `.env.kite`. With the file, the live mode picks up each new day's token by itself.
 
-1. The first time, paste your Kite Connect API key when asked.
-2. Each day, after your algo logs in to Kite, paste that day's access token when asked.
-3. The site opens in your browser with live prices. Close the Terminal window to stop.
+**mpipos.github.io, live on your Mac only:** open https://mpipos.github.io/?live=on once on your Mac. From then on, that browser shows live prices whenever the live mode is running, and the last official prices when it isn't. Everyone else's browser never looks for the live mode, and keeps the last official update. `?live=off` turns it off. Some browsers ask once whether the site may reach your own computer, and Brave may block it, in which case http://127.0.0.1:4174 still works.
 
-Both are saved in `.env.kite`, which git ignores, so the next start that day asks for nothing. A token is asked for again after 6 AM, when Kite's tokens expire.
+**Automatic:** `npm run automate` sets your Mac to open the live mode at 9:00 AM and to start GitHub's site update at 9:00 PM, on weekdays. If the Mac is asleep then, they run when it wakes. `npm run automate -- --remove` turns both off.
 
-Other ways to set it up, in `.env.kite`:
-
-- `KITE_ACCESS_TOKEN_FILE=/path/to/token.txt` reads the token your algo saves each morning (plain text, or JSON with an `access_token`), so you never paste it.
-- `KITE_API_KEY` and `KITE_API_SECRET` log in here instead, with the app's redirect URL set to `http://127.0.0.1:4174/live/callback`. Don't do this with your algo's app, as changing its redirect URL would break your algo's login.
-
-To try the live screens without a Kite account, run `npm run live -- --demo`. Its prices are made up, and the page says so.
+Settings live in `.env.kite`, which git ignores. To log in here instead of sharing your algo's token, set `KITE_API_SECRET` and the app's redirect URL to `http://127.0.0.1:4174/live/callback`, but don't do that with your algo's app, as it would break your algo's login. To try the live screens without Kite, run `npm run live -- --demo`, whose prices are made up.
 
 ## Build it on your own computer
 
@@ -78,7 +71,7 @@ The page names its source beside each set of figures. It doesn't use sites whose
 - `lib/movers.js` works out each day's top gainers and losers, which `scripts/assemble.js` writes as a small file per date.
 - `lib/heatmap.js` gathers each day's moves for the heatmap, again as a file per date. `lib/treemap.js` lays out its tiles: sized by market cap and grouped by sector in the treemap, or equal and sorted by the move in the tiles view.
 - `scripts/assemble.js` joins the list of instruments and the code in `page/` and `lib/` into `dist/index.html`, and copies the data files beside it.
-- `scripts/live.js` and `scripts/sources/kite.js` run the personal live mode, and `page/live.js` is its side of the page. The published page only uses it when `npm run live` serves it.
+- `scripts/live.js` and `scripts/sources/kite.js` run the personal live mode, `page/live.js` is its side of the page, and `scripts/automate.js` schedules it. The published page only reads live prices from the live mode on its own computer, when served by it or opened there with `?live=on`.
 - `lib/pivot.js` holds the formula.
 - `lib/market.js` answers the page's questions, such as a day's pivot or the 52-week range.
 

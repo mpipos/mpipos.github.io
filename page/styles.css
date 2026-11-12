@@ -2736,6 +2736,52 @@ button.heat-index:active {
   color: var(--ink);
 }
 
+/* Waiting for today's token: the pill becomes a small form. */
+.live-pill.is-asking {
+  max-width: none;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.live-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.live-form input {
+  width: 11rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+}
+
+.live-form button {
+  min-height: 2rem;
+  padding: 0.25rem 0.875rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.live-form button:disabled {
+  opacity: 0.6;
+}
+
+.live-pill.is-asking .live-message {
+  color: var(--ink-2);
+  white-space: normal;
+}
+
 .live-message {
   overflow: hidden;
   color: var(--down-text);
@@ -2837,6 +2883,29 @@ button.heat-index:active {
     overflow: hidden;
     font-size: 0.6875rem;
     white-space: normal;
+  }
+
+  /* The token form drops below the top bar here, at full width. */
+  .live-pill.is-asking {
+    position: fixed;
+    top: 4.75rem;
+    right: 1rem;
+    left: 1rem;
+    z-index: 40;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lift);
+    font-size: 0.8125rem;
+  }
+
+  .live-form input {
+    flex: 1 1 100%;
+    width: auto;
+    min-height: 2.5rem;
+  }
+
+  .live-form button {
+    min-height: 2.5rem;
   }
 
   .heat-when {
