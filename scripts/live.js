@@ -5,7 +5,10 @@
 //   npm run live            log in to Kite in the browser, then prices stream while the market is open
 //   npm run live -- --demo  made-up prices, to try the live screens without a Kite account
 //
-// Your API key and secret go in .env.kite (KITE_API_KEY=… and KITE_API_SECRET=…), which git ignores.
+// Settings go in .env.kite, which git ignores. Either log in here with your app's key and secret:
+//   KITE_API_KEY=…  and  KITE_API_SECRET=…
+// or reuse the access token your own trading code already gets each morning, so there's no second login:
+//   KITE_API_KEY=…  and  KITE_ACCESS_TOKEN=…  (or KITE_ACCESS_TOKEN_FILE=/path/to/the/file/it/saves)
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -50,9 +53,26 @@ if (!existsSync(join(DIST, 'index.html'))) {
 const env = readEnv();
 const apiKey = process.env.KITE_API_KEY ?? env.KITE_API_KEY;
 const apiSecret = process.env.KITE_API_SECRET ?? env.KITE_API_SECRET;
-if (!DEMO && (!apiKey || !apiSecret)) {
-  console.error(`Put your Kite Connect API key and secret in ${ENV_FILE}:\n  KITE_API_KEY=…\n  KITE_API_SECRET=…\nor try the screens with: npm run live -- --demo`);
+const tokenSetting = process.env.KITE_ACCESS_TOKEN ?? env.KITE_ACCESS_TOKEN;
+const tokenFile = process.env.KITE_ACCESS_TOKEN_FILE ?? env.KITE_ACCESS_TOKEN_FILE;
+const reusesToken = Boolean(tokenSetting || tokenFile);
+if (!DEMO && (!apiKey || (!apiSecret && !reusesToken))) {
+  console.error(
+    `Put your Kite Connect settings in ${ENV_FILE}, either\n  KITE_API_KEY=…\n  KITE_API_SECRET=…\nor, to reuse your trading code's login,\n  KITE_API_KEY=…\n  KITE_ACCESS_TOKEN=…   (or KITE_ACCESS_TOKEN_FILE=/path/to/token)\nor try the screens with: npm run live -- --demo`,
+  );
   process.exit(1);
+}
+
+// The token another program saved: the file's whole text, or its "access_token" if the file is JSON.
+function borrowedToken() {
+  if (tokenSetting) return tokenSetting;
+  try {
+    const text = readFileSync(tokenFile, 'utf8').trim();
+    if (text.startsWith('{')) return JSON.parse(text).access_token ?? null;
+    return text || null;
+  } catch {
+    return null;
+  }
 }
 
 /* What to stream: every heatmap stock and index, plus whatever stock is open on the page. */
@@ -190,6 +210,10 @@ function connectTicker() {
       state.message = 'Your Kite login has expired. Log in again.';
       return broadcastStatus();
     }
+    if (reusesToken) {
+      const fresh = borrowedToken();
+      if (fresh && fresh !== session.accessToken) session = { ...session, accessToken: fresh, expires: nextSixAmIst(new Date()) };
+    }
     const wait = RECONNECT_MS[Math.min(attempt++, RECONNECT_MS.length - 1)];
     log(`Kite’s live prices disconnected (${event.code}). Reconnecting in ${wait / 1000}s…`);
     setTimeout(connectTicker, wait);
@@ -206,6 +230,7 @@ async function startKite() {
     if (/HTTP 403/.test(error.message)) {
       session = null;
       state.loggedIn = false;
+      if (reusesToken) state.message = 'The access token has expired or is wrong. Update it from your trading code’s login, then restart npm run live.';
     }
     broadcastStatus();
   }
@@ -267,6 +292,12 @@ createServer(async (request, response) => {
   try {
     if (url.pathname === '/live/login') {
       if (DEMO) return response.writeHead(302, { Location: '/' }).end();
+      // Reusing another program's token means logging in there, never here.
+      if (!apiSecret) {
+        state.message = 'Log in with your trading code as usual, update the token, then restart npm run live.';
+        broadcastStatus();
+        return response.writeHead(302, { Location: '/' }).end();
+      }
       return response.writeHead(302, { Location: loginUrl(apiKey) }).end();
     }
     if (url.pathname === '/live/callback') {
@@ -309,11 +340,18 @@ createServer(async (request, response) => {
 }).listen(PORT, HOST, () => {
   log(`Personal live mode at http://${HOST}:${PORT} (only on this computer).`);
   if (DEMO) return startDemo();
-  session = loadSession();
-  if (session) {
+  const borrowed = reusesToken ? borrowedToken() : null;
+  if (reusesToken && !borrowed) log(`Couldn’t read the access token${tokenFile ? ` from ${tokenFile}` : ''}.`);
+  // A borrowed token can't say when it was issued, so it's taken as today's, which lasts until 6 AM.
+  session = borrowed ? { apiKey, accessToken: borrowed, user: null, expires: nextSixAmIst(new Date()) } : loadSession();
+  if (borrowed) {
+    state.loggedIn = true;
+    log('Using the access token from your trading code’s login, so there’s no second login.');
+    startKite();
+  } else if (session) {
     state.loggedIn = true;
     state.user = session.user;
     log('Using today’s Kite login.');
     startKite();
-  } else log(`Open the page and choose “Log in to Kite”. Your Kite app’s redirect URL must be http://${HOST}:${PORT}/live/callback`);
+  } else if (!reusesToken) log(`Open the page and choose “Log in to Kite”. Your Kite app’s redirect URL must be http://${HOST}:${PORT}/live/callback`);
 });

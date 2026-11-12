@@ -25,16 +25,21 @@ If an update fails, the live page stays as it was and GitHub emails you. When on
 
 The published site shows official end-of-day data. On your own computer, `npm run live` shows the same pages with live prices from your own Kite Connect account: the index row, the NIFTY 50 expected range, both heatmaps, the open stock's live price with today's pivot so far, and live top gainers and losers.
 
-Kite's terms say its live data "cannot be displayed to the public at large", so this runs only on your computer (http://127.0.0.1:4174) and is never published. It only reads prices and never places orders. Use a separate Kite Connect app for it, not the one your trading uses.
+Kite's terms say its live data "cannot be displayed to the public at large", so this runs only on your computer (http://127.0.0.1:4174) and is never published. It only reads prices and never places orders.
 
-1. In the [Kite Connect developer console](https://developers.kite.trade), create an app with market data, and set its redirect URL to `http://127.0.0.1:4174/live/callback`.
-2. Create a file named `.env.kite` in this folder with your app's key and secret. Git ignores this file.
-   ```
-   KITE_API_KEY=your_api_key
-   KITE_API_SECRET=your_api_secret
-   ```
-3. Build the site once (`npm run build`, or `npm run assemble` if the data is already collected), then run `npm run live`.
-4. Open http://127.0.0.1:4174 and choose **Log in to Kite**. Kite's login lasts until 6 AM the next day, so you log in once each morning.
+It needs a Kite Connect plan with live streaming (Connect, ₹500 a month). If you already have one for your own trading code, the live mode can share it at no extra cost by reusing that code's daily access token, which also avoids a second login.
+
+Create a file named `.env.kite` in this folder. Git ignores it. Then choose one way to sign in:
+
+- **Share your trading code's login (no second plan, no second login):**
+  ```
+  KITE_API_KEY=your_api_key
+  KITE_ACCESS_TOKEN=todays_access_token
+  ```
+  Or, if your trading code saves the token to a file each morning, point to that file instead, and the live mode reads it at each start: `KITE_ACCESS_TOKEN_FILE=/path/to/token.txt` (plain text, or JSON with an `access_token`).
+- **Log in here:** set `KITE_API_KEY` and `KITE_API_SECRET`, and set the app's redirect URL to `http://127.0.0.1:4174/live/callback`. Don't do this with the app your trading code uses, as changing its redirect URL would break that code's login.
+
+Build the site once (`npm run build`, or `npm run assemble` if the data is already collected), run `npm run live`, and open http://127.0.0.1:4174. Kite's access tokens last until 6 AM the next day.
 
 To try the live screens without a Kite account, run `npm run live -- --demo`. Its prices are made up, and the page says so.
 
