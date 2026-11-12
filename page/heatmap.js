@@ -27,7 +27,8 @@ const bandClass = (percent) => {
   return `heat-${band < 0 ? 'n' : 'p'}${Math.abs(band)}`;
 };
 
-function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, updatedAt, savedGroup, savedLayout, onChange }) {
+// `embedded` puts everything in one card with its own heading, for the front page.
+function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, updatedAt, savedGroup, savedLayout, onChange, embedded = false }) {
   const stocks = info.stocks.map(([symbol, name, sector, cap]) => ({ symbol, name, sector: info.sectors[sector] ?? 'Other', cap }));
   const indices = info.indices.map(([symbol, label, members]) => ({ symbol, label, members }));
   const openable = indices.filter(({ members }) => members?.length);
@@ -406,54 +407,52 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
     ...HEAT_LEGEND.map(([band, text]) => el('span', { role: 'listitem', class: 'heat-key' }, el('span', { class: `heat-swatch heat-${band < 0 ? 'n' : 'p'}${Math.abs(band)}`, 'aria-hidden': 'true' }), text)),
   );
 
-  host.replaceChildren(
+  const intro = 'Each stock in an NSE index, coloured by how far its close moved from the previous close. Choose an index, a day and a layout. Select a stock to see its pivot.';
+  const liveLink = el(
+    'a',
+    { class: 'heat-live', href: NSE_LIVE_HEATMAP, target: '_blank', rel: 'noopener noreferrer', title: 'NSE’s live heatmap, during market hours. Opens in a new tab.' },
+    chevron('M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5'),
+    'Live heatmap on NSE',
+  );
+  const card = el(
+    'section',
+    { class: embedded ? 'heat-card is-embedded' : 'heat-card' },
+    embedded ? el('div', { class: 'heat-card-head' }, el('div', {}, el('h3', { class: 'section-title' }, 'Market heatmap'), el('p', { class: 'section-note' }, intro)), liveLink) : null,
     el(
       'div',
-      { class: 'heat-view reveal' },
-      el(
-        'header',
-        { class: 'ipo-hero heat-hero' },
-        el(
-          'div',
-          {},
-          el('h1', {}, 'Heatmap'),
-          el('p', { class: 'ipo-intro' }, 'Each stock in an NSE index, coloured by how far its close moved from the previous close. Choose an index, a day and a layout. Select a stock to see its pivot.'),
-        ),
-        el(
-          'a',
-          { class: 'heat-live', href: NSE_LIVE_HEATMAP, target: '_blank', rel: 'noopener noreferrer', title: 'NSE’s live heatmap, during market hours. Opens in a new tab.' },
-          chevron('M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5'),
-          'Live heatmap on NSE',
-        ),
-      ),
-      el(
-        'section',
-        { class: 'heat-card' },
-        el(
-          'div',
-          { class: 'heat-tools' },
-          el('div', { class: 'date-control heat-date' }, previous, dateInput, next),
-          segmented({
-            label: 'Layout',
-            options: HEAT_LAYOUTS,
-            chosen: state.layout,
-            onChoose: (value) => {
-              state.layout = value;
-              onChange({ layout: value });
-              draw();
-            },
-          }),
-        ),
-        strip,
-        summary,
-        message,
-        board,
-        legend,
-        updatedBadge(updatedAt),
-        el('p', { class: 'section-note' }, 'Treemap tiles are sized by the latest market cap and grouped by sector. Index members are today’s, from NSE. Moves leave out corporate-action days and stocks that had not traded for over a week. From NSE’s daily reports.'),
-      ),
+      { class: 'heat-tools' },
+      el('div', { class: 'date-control heat-date' }, previous, dateInput, next),
+      segmented({
+        label: 'Layout',
+        options: HEAT_LAYOUTS,
+        chosen: state.layout,
+        onChoose: (value) => {
+          state.layout = value;
+          onChange({ layout: value });
+          draw();
+        },
+      }),
     ),
+    strip,
+    summary,
+    message,
+    board,
+    legend,
+    updatedBadge(updatedAt),
+    el('p', { class: 'section-note' }, 'Treemap tiles are sized by the latest market cap and grouped by sector. Index members are today’s, from NSE. Moves leave out corporate-action days and stocks that had not traded for over a week. From NSE’s daily reports.'),
   );
+
+  if (embedded) host.replaceChildren(card);
+  else {
+    host.replaceChildren(
+      el(
+        'div',
+        { class: 'heat-view reveal' },
+        el('header', { class: 'ipo-hero heat-hero' }, el('div', {}, el('h1', {}, 'Heatmap'), el('p', { class: 'ipo-intro' }, intro)), liveLink),
+        card,
+      ),
+    );
+  }
 
   goTo(state.date);
 }

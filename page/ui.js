@@ -6,8 +6,9 @@ const prefersMotion = () => !window.matchMedia('(prefers-reduced-motion: reduce)
 
 // Cross-fades the page between two states where the browser supports it.
 function transition(update) {
-  // A page-wide transition would interrupt the opening animation.
-  if (document.startViewTransition && prefersMotion() && !document.hidden && !document.documentElement.classList.contains('intro')) {
+  // A page-wide transition would interrupt the opening animation, or a switch between views that's under way.
+  const root = document.documentElement;
+  if (document.startViewTransition && prefersMotion() && !document.hidden && !root.classList.contains('intro') && !root.dataset.switch) {
     document.startViewTransition(update);
   } else {
     update();

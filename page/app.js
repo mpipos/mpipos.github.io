@@ -702,6 +702,7 @@ function render({ fresh = false } = {}) {
       'div',
       { class: 'secondary' },
       session ? renderSessions(data) : null,
+      frontHeatmap,
       renderMovers(dateInput.value),
       el('div', { class: 'news-column' }, renderUpcoming(item), renderNews(item), renderFilings(item)),
     ),
@@ -946,69 +947,146 @@ function readSaved(key) {
   }
 }
 
+let heatInfo = null;
+
+// The list of indices and their stocks, read once for both heatmaps. A failed read is tried again next time.
+function loadHeatInfo() {
+  heatInfo ??= fetch(dataUrl('h/info.json')).then((response) => {
+    if (!response.ok) throw new Error('Heatmap data unavailable');
+    return response.json();
+  });
+  heatInfo.catch(() => (heatInfo = null));
+  return heatInfo;
+}
+
+function heatmapOptions(info, extra = {}) {
+  const tradingDays = market.tradingDays('NSE');
+  return {
+    info,
+    loadDay: loadHeatDay,
+    tradingDays,
+    initialDate: tradingDays.at(-1),
+    updatedAt: market.updatedAt,
+    savedGroup: readSaved('heatGroup') ?? 'NIFTY 50',
+    savedLayout: readSaved('heatLayout'),
+    onChange: ({ group, layout }) => {
+      if (group) saveChoice('heatGroup', group);
+      if (layout) saveChoice('heatLayout', layout);
+    },
+    open: (symbol, date) => {
+      const entry = market.entry(symbol);
+      if (!entry) return;
+      location.hash = '#pivot';
+      dateTouched = true;
+      dateInput.value = date;
+      selectInstrument(symbol, entry.label ?? entry.name);
+      window.scrollTo({ top: 0, behavior: prefersMotion() ? 'smooth' : 'auto' });
+    },
+    ...extra,
+  };
+}
+
+function heatmapError(host, retry) {
+  host.replaceChildren(
+    el(
+      'article',
+      { class: 'hero is-message' },
+      el('p', { class: 'message-title' }, 'Couldn’t load the heatmap'),
+      el('p', { class: 'message-body' }, 'Check your internet connection and try again.'),
+      el('div', { class: 'actions' }, el('button', { type: 'button', onclick: retry }, 'Try again')),
+    ),
+  );
+}
+
 async function loadHeatmap() {
   if (heatmapLoaded) return;
   heatmapLoaded = true;
-  const host = views.heatmap;
   setBusy(true);
   try {
-    const response = await fetch(dataUrl('h/info.json'));
-    if (!response.ok) throw new Error('Heatmap data unavailable');
-    const info = await response.json();
-    const tradingDays = market.tradingDays('NSE');
-    renderHeatmapView(host, {
-      info,
-      loadDay: loadHeatDay,
-      tradingDays,
-      initialDate: tradingDays.at(-1),
-      updatedAt: market.updatedAt,
-      savedGroup: readSaved('heatGroup') ?? 'NIFTY 50',
-      savedLayout: readSaved('heatLayout'),
-      onChange: ({ group, layout }) => {
-        if (group) saveChoice('heatGroup', group);
-        if (layout) saveChoice('heatLayout', layout);
-      },
-      open: (symbol, date) => {
-        const entry = market.entry(symbol);
-        if (!entry) return;
-        location.hash = '#pivot';
-        dateTouched = true;
-        dateInput.value = date;
-        selectInstrument(symbol, entry.label ?? entry.name);
-      },
-    });
+    renderHeatmapView(views.heatmap, heatmapOptions(await loadHeatInfo()));
   } catch {
     heatmapLoaded = false;
-    host.replaceChildren(
-      el(
-        'article',
-        { class: 'hero is-message' },
-        el('p', { class: 'message-title' }, 'Couldn’t load the heatmap'),
-        el('p', { class: 'message-body' }, 'Check your internet connection and try again.'),
-        el('div', { class: 'actions' }, el('button', { type: 'button', onclick: loadHeatmap }, 'Try again')),
-      ),
-    );
+    heatmapError(views.heatmap, loadHeatmap);
   } finally {
     setBusy(false);
   }
 }
 
+// The front page's own heatmap, before the gainers and losers. It's built once and moved into each new
+// render of the page, so it keeps its index, day and layout while people look at other stocks.
+const frontHeatmap = el('div', { class: 'front-heat' });
+let frontHeatmapState = 'idle';
+
+async function loadFrontHeatmap() {
+  if (frontHeatmapState !== 'idle') return;
+  frontHeatmapState = 'loading';
+  try {
+    renderHeatmapView(frontHeatmap, heatmapOptions(await loadHeatInfo(), { embedded: true }));
+    frontHeatmapState = 'ready';
+  } catch {
+    frontHeatmapState = 'idle';
+    heatmapError(frontHeatmap, loadFrontHeatmap);
+  }
+}
+
+// It loads as it nears the screen, so the top of the page isn't kept waiting.
+new IntersectionObserver(
+  (entries, observer) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    observer.disconnect();
+    loadFrontHeatmap();
+  },
+  { rootMargin: '800px 0px' },
+).observe(frontHeatmap);
+
 const VIEW_TITLES = { ipos: 'IPOs · Market Pivots and IPOs', heatmap: 'Heatmap · Market Pivots and IPOs' };
 
+// Views in menu order, so a switch slides the way the menu reads.
+const VIEW_ORDER = ['pivot', 'heatmap', 'ipos'];
+let shownView = null;
+
+function applyView(name) {
+  for (const [viewName, node] of Object.entries(views)) node.hidden = viewName !== name;
+  for (const link of menuLinks) {
+    if (link.dataset.view === name) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  moveMenuIndicator();
+  document.title = VIEW_TITLES[name] ?? 'Market Pivots and IPOs';
+  window.scrollTo({ top: 0 });
+  // The chart measures its space, so it's drawn once its view is showing, which a transition delays.
+  if (name === 'pivot') drawChart?.();
+}
+
+// The page slides away with a motion blur along its travel, and the next one slides in and comes into focus.
+function switchView(name) {
+  const from = shownView;
+  shownView = name;
+  const root = document.documentElement;
+  const animate = from && from !== name && prefersMotion() && !document.hidden && !root.classList.contains('intro');
+  if (!animate) return applyView(name);
+  root.dataset.switch = VIEW_ORDER.indexOf(name) > VIEW_ORDER.indexOf(from) ? 'forward' : 'back';
+  if (document.startViewTransition) {
+    const switching = document.startViewTransition(() => applyView(name));
+    switching.finished.finally(() => delete root.dataset.switch);
+  } else {
+    applyView(name);
+    const view = views[name];
+    view.classList.add('view-enter');
+    const done = (event) => {
+      if (event.target !== view) return;
+      view.removeEventListener('animationend', done);
+      view.classList.remove('view-enter');
+      delete root.dataset.switch;
+    };
+    view.addEventListener('animationend', done);
+  }
+}
+
 function showView(name) {
-  transition(() => {
-    for (const [viewName, node] of Object.entries(views)) node.hidden = viewName !== name;
-    for (const link of menuLinks) {
-      if (link.dataset.view === name) link.setAttribute('aria-current', 'page');
-      else link.removeAttribute('aria-current');
-    }
-    moveMenuIndicator();
-    document.title = VIEW_TITLES[name] ?? 'Market Pivots and IPOs';
-    window.scrollTo({ top: 0 });
-  });
+  switchView(name);
   if (name === 'ipos') loadIpos();
   else if (name === 'heatmap') loadHeatmap();
-  else drawChart?.();
 }
 
 const viewFromHash = () => ({ '#ipos': 'ipos', '#heatmap': 'heatmap' })[location.hash] ?? 'pivot';
