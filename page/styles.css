@@ -2126,6 +2126,40 @@ html.intro .site-footer {
   gap: 1.5rem;
 }
 
+.heat-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+}
+
+.heat-live {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--on-hero-rule);
+  border-radius: 0.75rem;
+  color: var(--on-hero);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms var(--ease);
+}
+
+.heat-live:hover {
+  border-color: var(--on-hero);
+  background: var(--hero-glow);
+  transform: translateY(-1px);
+}
+
+.heat-live:active {
+  transform: scale(0.97);
+}
+
 .heat-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

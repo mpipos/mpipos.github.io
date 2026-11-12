@@ -16,6 +16,8 @@ const HEAT_LEGEND = [
   [3, '+3%'],
   [4, 'Above +3%'],
 ];
+// This page shows official closing moves. During market hours NSE's own heatmap has the live ones.
+const NSE_LIVE_HEATMAP = 'https://www.nseindia.com/market-data/live-market-indices/heatmap';
 const HEAT_GAP = 2;
 const SECTOR_HEADER = 18;
 const LEAVE_MS = 420;
@@ -416,6 +418,12 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
           {},
           el('h1', {}, 'Heatmap'),
           el('p', { class: 'ipo-intro' }, 'Each stock in an NSE index, coloured by how far its close moved from the previous close. Choose an index, a day and a layout. Select a stock to see its pivot.'),
+        ),
+        el(
+          'a',
+          { class: 'heat-live', href: NSE_LIVE_HEATMAP, target: '_blank', rel: 'noopener noreferrer', title: 'NSE’s live heatmap, during market hours. Opens in a new tab.' },
+          chevron('M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5'),
+          'Live heatmap on NSE',
         ),
       ),
       el(
