@@ -83,7 +83,12 @@ function createLiveFeed() {
       notify('quotes', Object.keys(q));
     });
     source.addEventListener('error', () => {
-      status = { ...status, connected: false, mode: reached ? status.mode : 'off', message: 'The live mode isn’t running on this computer, so these are the last official prices.' };
+      status = {
+        ...status,
+        connected: false,
+        mode: reached ? status.mode : 'off',
+        message: 'Either the live mode isn’t running on this Mac, or the browser hasn’t let this site reach it. In Brave or Chrome, click the icon left of the address, then Site settings, and allow access to apps on this device (local network). Until then these are the last official prices.',
+      };
       notify('status');
       if (!reached) {
         // Not running yet: look again each minute, quietly.
@@ -221,7 +226,7 @@ function renderLivePill(host) {
       return pill.replaceChildren(`Demo prices, made up${liveFeed.lastTick ? ` · ${formatLiveTime(liveFeed.lastTick)}` : ''}`);
     }
     if (mode === 'off') {
-      return pill.replaceChildren(el('span', { title: message ?? '' }, 'Mac’s live mode is off · official prices'));
+      return pill.replaceChildren(el('span', { title: message ?? '' }, 'Live mode off or blocked · official prices'));
     }
     // On the published site, today's token is pasted in the live mode's own page, which is this computer's.
     if (!loggedIn && liveFeed.status.remote && (needs === 'key' || needs === 'token')) {

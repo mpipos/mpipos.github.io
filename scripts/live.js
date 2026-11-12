@@ -509,13 +509,13 @@ const server = createServer(async (request, response) => {
   }
 });
 
-// Opens your own site, live on this Mac. Chrome is used where it's installed, because it lets a public site
-// reach this computer once you allow it, and ?live=on makes that browser show the Live button.
-const CHROME = '/Applications/Google Chrome.app';
+// Opens your own site, live on this Mac, in your default browser (or LIVE_BROWSER, such as "Google Chrome").
+// ?live=on makes that browser show the Live button. Brave and Chrome ask once to let the site reach this Mac.
 const openPage = () => {
   if (process.platform !== 'darwin' || args.includes('--no-open')) return;
   const page = DEMO || LOCAL || process.env.LIVE_SITE ? ORIGIN : `${SITE}/?live=on`;
-  execFile('open', existsSync(CHROME) && page !== ORIGIN ? ['-a', CHROME, page] : [page], () => {});
+  const browser = setting('LIVE_BROWSER');
+  execFile('open', browser ? ['-a', browser, page] : [page], () => {});
 };
 
 // Started again while already running (say, by the 9 AM start after you'd opened it yourself), it just opens the page.
