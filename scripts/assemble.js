@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { readFile, writeFile } from 'node:fs/promises';
 
 import { instrumentFile } from '../lib/market.js';
+import { createHeatmapCollector } from '../lib/heatmap.js';
 import { collectMovers } from '../lib/movers.js';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -27,6 +28,8 @@ const script = [
   moduleCode(await read('page/ui.js')),
   moduleCode(await read('page/chart.js')),
   moduleCode(await read('page/ipo.js')),
+  moduleCode(await read('lib/treemap.js')),
+  moduleCode(await read('page/heatmap.js')),
   await read('page/app.js'),
 ].join('\n');
 
@@ -61,15 +64,30 @@ cpSync(new URL('i/', site), new URL('data/i/', dist), { recursive: true });
 if (existsSync(new URL('ipos.json', site))) cpSync(new URL('ipos.json', site), new URL('data/ipos.json', dist));
 await writeFile(new URL('index.html', dist), page);
 
+const readItem = (symbol) => JSON.parse(readFileSync(new URL(`i/${instrumentFile(symbol)}`, site), 'utf8'));
+const { list, coverage } = JSON.parse(meta);
+const heatmapFile = new URL('heatmap.json', site);
+const members = existsSync(heatmapFile) ? JSON.parse(readFileSync(heatmapFile, 'utf8')).members : {};
+const heatmap = createHeatmapCollector(new Map(Object.entries(members).map(([index, symbols]) => [index, new Set(symbols)])));
+
 // Named from the list rather than the folder, so a stray copy of a file can't count a stock twice.
+// Each stock is read once, for both the gainers and the heatmap.
 function* allStocks() {
-  for (const [symbol, , type] of JSON.parse(meta).list) {
-    if (type === 'Stock') yield JSON.parse(readFileSync(new URL(`i/${instrumentFile(symbol)}`, site), 'utf8'));
+  for (const [symbol, , type] of list) {
+    if (type !== 'Stock') continue;
+    const stock = readItem(symbol);
+    heatmap.add(stock);
+    yield stock;
   }
 }
 mkdirSync(new URL('data/m/', dist), { recursive: true });
 const movers = collectMovers(allStocks());
 for (const [date, day] of movers) writeFileSync(new URL(`data/m/${date}.json`, dist), JSON.stringify(day));
 
-const { coverage } = JSON.parse(meta);
-console.log(`Built dist/: ${(page.length / 1e6).toFixed(2)} MB page, ${coverage}, gainers and losers for ${movers.size} days`);
+const nseIndices = list.filter(([, , type, exchange]) => type === 'Index' && exchange === 'NSE').map(([symbol]) => readItem(symbol));
+const heat = heatmap.finish(nseIndices);
+mkdirSync(new URL('data/h/', dist), { recursive: true });
+writeFileSync(new URL('data/h/info.json', dist), JSON.stringify(heat.info));
+for (const [date, day] of heat.days) writeFileSync(new URL(`data/h/${date}.json`, dist), JSON.stringify(day));
+
+console.log(`Built dist/: ${(page.length / 1e6).toFixed(2)} MB page, ${coverage}, gainers and losers for ${movers.size} days, heatmaps for ${heat.days.size} days`);

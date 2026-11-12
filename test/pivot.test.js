@@ -15,6 +15,8 @@ import {
   summariseListings,
 } from '../scripts/sources/ipo.js';
 import { parseSebiList, splitFilingTitle } from '../scripts/sources/sebi.js';
+import { createHeatmapCollector } from '../lib/heatmap.js';
+import { heatBand, squarify, tileGrid } from '../lib/treemap.js';
 import { pivotPoint } from '../lib/pivot.js';
 import { decodeEntities, parseHeadlines } from '../scripts/sources/news.js';
 import {
@@ -805,4 +807,65 @@ test('search finds names, symbols and button labels, ranking the best match firs
   assert.deepEqual(symbols('titan'), ['TITAN', 'BSE:TITAN']);
   assert.deepEqual(symbols('zzqqxx'), []);
   assert.deepEqual(symbols('   '), []);
+});
+
+test('heat bands follow NSE-style one-percent steps', () => {
+  assert.deepEqual([-5, -3, -2.5, -0.2, 0, null, 0.01, 1, 1.01, 3, 3.2].map(heatBand), [-4, -3, -3, -1, 0, 0, 1, 1, 2, 3, 4]);
+});
+
+test('the treemap fills its space with areas in proportion to value', () => {
+  const items = [6, 6, 4, 3, 2, 2, 1].map((value, i) => ({ key: `s${i}`, value }));
+  const rects = squarify(items, 0, 0, 600, 400);
+  assert.equal(rects.length, items.length);
+  const total = rects.reduce((sum, { width, height }) => sum + width * height, 0);
+  assert.ok(Math.abs(total - 600 * 400) < 1e-6);
+  for (const { key, x, y, width, height } of rects) {
+    const value = items.find((item) => item.key === key).value;
+    assert.ok(Math.abs((width * height) / (600 * 400) - value / 24) < 1e-9, key);
+    assert.ok(x >= -1e-9 && y >= -1e-9 && x + width <= 600 + 1e-9 && y + height <= 400 + 1e-9, key);
+  }
+  for (let a = 0; a < rects.length; a++) {
+    for (let b = a + 1; b < rects.length; b++) {
+      const [p, q] = [rects[a], rects[b]];
+      const overlap = Math.max(0, Math.min(p.x + p.width, q.x + q.width) - Math.max(p.x, q.x)) * Math.max(0, Math.min(p.y + p.height, q.y + q.height) - Math.max(p.y, q.y));
+      assert.ok(overlap < 1e-6, `${p.key} overlaps ${q.key}`);
+    }
+  }
+  // Squarified rectangles stay reasonably close to square.
+  assert.ok(rects.every(({ width, height }) => Math.max(width / height, height / width) < 4));
+  assert.deepEqual(squarify([{ key: 'a', value: 0 }], 0, 0, 10, 10), []);
+});
+
+test('equal tiles run in reading order', () => {
+  const { height, rects } = tileGrid(['a', 'b', 'c', 'd'], 300, { minWidth: 100, height: 50 });
+  assert.equal(height, 100);
+  assert.deepEqual(rects.map(({ x, y }) => [x, y]), [[0, 0], [100, 0], [200, 0], [0, 50]]);
+});
+
+test('the heatmap holds each index member and every day’s move', () => {
+  const day = (iso) => Date.parse(iso) / 86_400_000;
+  const stock = (symbol, closes, extra = {}) => ({
+    symbol,
+    name: `${symbol} Limited`,
+    type: 'Stock',
+    exchange: 'NSE',
+    days: ['2026-11-02', '2026-11-03', '2026-11-04'].map(day),
+    c: closes,
+    actions: [],
+    profile: { industry: 'Banks', marketCap: 5e11 },
+    ...extra,
+  });
+  const collector = createHeatmapCollector(new Map([['NIFTY BANK', new Set(['HDFCBANK', 'GONE'])]]));
+  collector.add(stock('HDFCBANK', [100, 102, 101], { nifty500: true }));
+  collector.add(stock('TCS', [10, 10, 11], { nifty500: true, profile: { industry: 'IT' } }));
+  collector.add(stock('TINY', [5, 6, 7]));
+  const index = (symbol, label) => ({ symbol, label, name: symbol, days: ['2026-11-03', '2026-11-04'].map(day), c: [1000, 990], actions: [] });
+  const { info, days } = collector.finish([index('NIFTY BANK', 'BANK NIFTY'), index('NIFTY 500'), index('INDIA VIX')]);
+
+  assert.deepEqual(info.sectors, ['Banks', 'IT']);
+  assert.deepEqual(info.stocks, [['HDFCBANK', 'HDFCBANK', 0, 50000], ['TCS', 'TCS', 1, null]]);
+  assert.deepEqual(info.indices, [['NIFTY BANK', 'BANK NIFTY', [0]], ['NIFTY 500', 'NIFTY 500', [0, 1]], ['INDIA VIX', 'INDIA VIX', null]]);
+  assert.deepEqual([...days.keys()], ['2026-11-03', '2026-11-04']);
+  assert.deepEqual(days.get('2026-11-04'), { i: [-1, -1, -1], s: [[101, -0.98], [11, 10]] });
+  assert.deepEqual(days.get('2026-11-03').i, [null, null, null]);
 });

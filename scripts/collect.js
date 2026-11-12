@@ -32,6 +32,7 @@ import {
   detectPriceActions,
   fetchDailyBundle,
   fetchEquityList,
+  fetchIndexMembers,
   fetchIndexReport,
   fetchNifty500List,
   fetchPeReport,
@@ -62,23 +63,23 @@ const NEXT_FOLDER = 'site-next';
 const SITE_FOLDER = 'site';
 
 const NSE_INDICES = [
-  { symbol: 'NIFTY 50', report: 'Nifty 50', news: '"Nifty 50"', keyword: 'nifty' },
-  { symbol: 'NIFTY BANK', label: 'BANK NIFTY', report: 'Nifty Bank', news: '"Bank Nifty" OR "Nifty Bank"', keyword: 'bank' },
-  { symbol: 'NIFTY FINANCIAL SERVICES', label: 'FINNIFTY', report: 'Nifty Financial Services', news: '"Nifty Financial Services" OR "FinNifty"', keyword: 'fin' },
-  { symbol: 'NIFTY NEXT 50', report: 'Nifty Next 50', news: '"Nifty Next 50"', keyword: 'next 50' },
-  { symbol: 'NIFTY 100', report: 'Nifty 100', news: '"Nifty 100"', keyword: 'nifty' },
+  { symbol: 'NIFTY 50', report: 'Nifty 50', news: '"Nifty 50"', keyword: 'nifty', members: ['ind_nifty50list.csv'] },
+  { symbol: 'NIFTY BANK', label: 'BANK NIFTY', report: 'Nifty Bank', news: '"Bank Nifty" OR "Nifty Bank"', keyword: 'bank', members: ['ind_niftybanklist.csv'] },
+  { symbol: 'NIFTY FINANCIAL SERVICES', label: 'FINNIFTY', report: 'Nifty Financial Services', news: '"Nifty Financial Services" OR "FinNifty"', keyword: 'fin', members: ['ind_niftyfinancelist.csv'] },
+  { symbol: 'NIFTY NEXT 50', report: 'Nifty Next 50', news: '"Nifty Next 50"', keyword: 'next 50', members: ['ind_niftynext50list.csv'] },
+  { symbol: 'NIFTY 100', report: 'Nifty 100', news: '"Nifty 100"', keyword: 'nifty', members: ['ind_nifty100list.csv'] },
   { symbol: 'NIFTY 500', report: 'Nifty 500', news: '"Nifty 500"', keyword: 'nifty' },
-  { symbol: 'NIFTY MIDCAP 100', report: 'NIFTY Midcap 100', news: '"Nifty Midcap 100" OR "Nifty Midcap"', keyword: 'midcap' },
-  { symbol: 'NIFTY SMALLCAP 100', report: 'NIFTY Smallcap 100', news: '"Nifty Smallcap 100" OR "Nifty Smallcap"', keyword: 'smallcap' },
-  { symbol: 'NIFTY IT', report: 'Nifty IT', news: '"Nifty IT"', keyword: 'it' },
-  { symbol: 'NIFTY AUTO', report: 'Nifty Auto', news: '"Nifty Auto"', keyword: 'auto' },
-  { symbol: 'NIFTY PHARMA', report: 'Nifty Pharma', news: '"Nifty Pharma"', keyword: 'pharma' },
-  { symbol: 'NIFTY FMCG', report: 'Nifty FMCG', news: '"Nifty FMCG"', keyword: 'fmcg' },
-  { symbol: 'NIFTY METAL', report: 'Nifty Metal', news: '"Nifty Metal"', keyword: 'metal' },
-  { symbol: 'NIFTY REALTY', report: 'Nifty Realty', news: '"Nifty Realty"', keyword: 'realty' },
-  { symbol: 'NIFTY ENERGY', report: 'Nifty Energy', news: '"Nifty Energy"', keyword: 'energy' },
-  { symbol: 'NIFTY PSU BANK', report: 'Nifty PSU Bank', news: '"Nifty PSU Bank"', keyword: 'psu' },
-  { symbol: 'NIFTY PRIVATE BANK', report: 'Nifty Private Bank', news: '"Nifty Private Bank"', keyword: 'bank' },
+  { symbol: 'NIFTY MIDCAP 100', report: 'NIFTY Midcap 100', news: '"Nifty Midcap 100" OR "Nifty Midcap"', keyword: 'midcap', members: ['ind_niftymidcap100list.csv'] },
+  { symbol: 'NIFTY SMALLCAP 100', report: 'NIFTY Smallcap 100', news: '"Nifty Smallcap 100" OR "Nifty Smallcap"', keyword: 'smallcap', members: ['ind_niftysmallcap100list.csv'] },
+  { symbol: 'NIFTY IT', report: 'Nifty IT', news: '"Nifty IT"', keyword: 'it', members: ['ind_niftyitlist.csv'] },
+  { symbol: 'NIFTY AUTO', report: 'Nifty Auto', news: '"Nifty Auto"', keyword: 'auto', members: ['ind_niftyautolist.csv'] },
+  { symbol: 'NIFTY PHARMA', report: 'Nifty Pharma', news: '"Nifty Pharma"', keyword: 'pharma', members: ['ind_niftypharmalist.csv'] },
+  { symbol: 'NIFTY FMCG', report: 'Nifty FMCG', news: '"Nifty FMCG"', keyword: 'fmcg', members: ['ind_niftyfmcglist.csv'] },
+  { symbol: 'NIFTY METAL', report: 'Nifty Metal', news: '"Nifty Metal"', keyword: 'metal', members: ['ind_niftymetallist.csv'] },
+  { symbol: 'NIFTY REALTY', report: 'Nifty Realty', news: '"Nifty Realty"', keyword: 'realty', members: ['ind_niftyrealtylist.csv'] },
+  { symbol: 'NIFTY ENERGY', report: 'Nifty Energy', news: '"Nifty Energy"', keyword: 'energy', members: ['ind_niftyenergylist.csv'] },
+  { symbol: 'NIFTY PSU BANK', report: 'Nifty PSU Bank', news: '"Nifty PSU Bank"', keyword: 'psu', members: ['ind_niftypsubanklist.csv'] },
+  { symbol: 'NIFTY PRIVATE BANK', report: 'Nifty Private Bank', news: '"Nifty Private Bank"', keyword: 'bank', members: ['ind_nifty_privatebanklist.csv', 'ind_niftyprivatebanklist.csv'] },
   { symbol: 'INDIA VIX', report: 'India VIX', news: '"India VIX"', keyword: 'vix' },
 ];
 
@@ -287,6 +288,28 @@ async function readHeadlines(requests) {
   }
   log(`Read headlines for ${headlines.size} of ${requests.length}.`);
   return headlines;
+}
+
+// Each index's current members, for the heatmap. A list that can't be read keeps the one from last time.
+async function readIndexMembers() {
+  const before = JSON.parse(readCache(`${SITE_FOLDER}/heatmap.json`) ?? 'null')?.members ?? {};
+  const members = {};
+  for (const index of NSE_INDICES.filter((candidate) => candidate.members)) {
+    for (const file of index.members) {
+      try {
+        const symbols = (await fetchIndexMembers(file)).map((row) => row.Symbol).filter(Boolean);
+        if (symbols.length >= 5) {
+          members[index.symbol] = symbols;
+          break;
+        }
+      } catch (error) {
+        log(`Members of ${index.symbol} unavailable from ${file}: ${error.message}`);
+      }
+    }
+    if (!members[index.symbol] && before[index.symbol]) members[index.symbol] = before[index.symbol];
+  }
+  log(`Read the members of ${Object.keys(members).length} indices for the heatmap.`);
+  return members;
 }
 
 async function readIpos(sessionsOf, actionsOf, today) {
@@ -609,6 +632,8 @@ if (ipos) {
   ipos.news = ipos.news ?? previousIpos?.news ?? [];
   writeCache(`${NEXT_FOLDER}/ipos.json`, JSON.stringify(ipos));
 }
+
+writeCache(`${NEXT_FOLDER}/heatmap.json`, JSON.stringify({ members: await readIndexMembers() }));
 
 const requiredSymbols = [...NSE_INDICES, ...OTHER_INDICES].map((index) => index.symbol);
 const problems = findDatasetProblems(

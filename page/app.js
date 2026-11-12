@@ -16,7 +16,7 @@ const result = document.querySelector('#result');
 const announcer = document.querySelector('#announcer');
 const presetsHost = document.querySelector('#presets');
 const progress = document.querySelector('#progress');
-const views = { pivot: document.querySelector('#view-pivot'), ipos: document.querySelector('#view-ipos') };
+const views = { pivot: document.querySelector('#view-pivot'), heatmap: document.querySelector('#view-heatmap'), ipos: document.querySelector('#view-ipos') };
 const menuLinks = [...document.querySelectorAll('.menu a')];
 const menuIndicator = document.querySelector('.menu-indicator');
 
@@ -902,6 +902,78 @@ async function loadIpos() {
   }
 }
 
+let heatmapLoaded = false;
+const heatDays = new Map();
+
+function loadHeatDay(date) {
+  if (!heatDays.has(date)) {
+    const request = fetch(dataUrl(`h/${date}.json`)).then((response) => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+      return response.json();
+    });
+    heatDays.set(date, request);
+    request.catch(() => heatDays.delete(date));
+  }
+  return heatDays.get(date);
+}
+
+function readSaved(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+async function loadHeatmap() {
+  if (heatmapLoaded) return;
+  heatmapLoaded = true;
+  const host = views.heatmap;
+  setBusy(true);
+  try {
+    const response = await fetch(dataUrl('h/info.json'));
+    if (!response.ok) throw new Error('Heatmap data unavailable');
+    const info = await response.json();
+    const tradingDays = market.tradingDays('NSE');
+    renderHeatmapView(host, {
+      info,
+      loadDay: loadHeatDay,
+      tradingDays,
+      initialDate: tradingDays.at(-1),
+      savedGroup: readSaved('heatGroup') ?? 'NIFTY 50',
+      savedLayout: readSaved('heatLayout'),
+      onChange: ({ group, layout }) => {
+        if (group) saveChoice('heatGroup', group);
+        if (layout) saveChoice('heatLayout', layout);
+      },
+      open: (symbol, date) => {
+        const entry = market.entry(symbol);
+        if (!entry) return;
+        location.hash = '#pivot';
+        dateTouched = true;
+        dateInput.value = date;
+        selectInstrument(symbol, entry.label ?? entry.name);
+      },
+    });
+  } catch {
+    heatmapLoaded = false;
+    host.replaceChildren(
+      el(
+        'article',
+        { class: 'hero is-message' },
+        el('p', { class: 'message-title' }, 'Couldn’t load the heatmap'),
+        el('p', { class: 'message-body' }, 'Check your internet connection and try again.'),
+        el('div', { class: 'actions' }, el('button', { type: 'button', onclick: loadHeatmap }, 'Try again')),
+      ),
+    );
+  } finally {
+    setBusy(false);
+  }
+}
+
+const VIEW_TITLES = { ipos: 'IPOs · Market Pivots and IPOs', heatmap: 'Heatmap · Market Pivots and IPOs' };
+
 function showView(name) {
   transition(() => {
     for (const [viewName, node] of Object.entries(views)) node.hidden = viewName !== name;
@@ -910,14 +982,15 @@ function showView(name) {
       else link.removeAttribute('aria-current');
     }
     moveMenuIndicator();
-    document.title = name === 'ipos' ? 'IPOs · Market Pivots and IPOs' : 'Market Pivots and IPOs';
+    document.title = VIEW_TITLES[name] ?? 'Market Pivots and IPOs';
     window.scrollTo({ top: 0 });
   });
   if (name === 'ipos') loadIpos();
+  else if (name === 'heatmap') loadHeatmap();
   else drawChart?.();
 }
 
-const viewFromHash = () => (location.hash === '#ipos' ? 'ipos' : 'pivot');
+const viewFromHash = () => ({ '#ipos': 'ipos', '#heatmap': 'heatmap' })[location.hash] ?? 'pivot';
 window.addEventListener('hashchange', () => showView(viewFromHash()));
 window.addEventListener('resize', moveMenuIndicator);
 

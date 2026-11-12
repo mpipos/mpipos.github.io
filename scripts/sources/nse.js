@@ -150,6 +150,7 @@ export const fetchNifty500List = () => fetchListing('content/indices/ind_nifty50
 export const fetchTotalMarketList = () => fetchListing('content/indices/ind_niftytotalmarket_list.csv');
 export const fetchEquityList = () => fetchListing('content/equities/EQUITY_L.csv');
 export const fetchSymbolChanges = () => fetchListing('content/equities/symbolchange.csv');
+export const fetchIndexMembers = (file) => fetchListing(`content/indices/${file}`);
 
 // Prices filed under a company's old ticker belong to today's ticker.
 export function createSymbolResolver(changes) {

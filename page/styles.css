@@ -25,6 +25,19 @@
   --on-pivot: #ffffff;
   --up-text: #096a50;
   --down-text: #b92f23;
+  --heat-n4: #8f2418;
+  --heat-n3: #c23b2b;
+  --heat-n2: #ee9a8f;
+  --heat-n1: #f8d3ce;
+  --heat-0: #e2e2e2;
+  --heat-p1: #c6e9d8;
+  --heat-p2: #82cfac;
+  --heat-p3: #147d5a;
+  --heat-p4: #0a5c41;
+  --heat-ink: #0e0e0e;
+  --heat-ink-strong: #ffffff;
+  --heat-ink-n4: #ffffff;
+  --heat-ink-p4: #ffffff;
   --warn-bg: #fdf1d9;
   --warn-ink: #5f4200;
   --shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 10px 30px rgb(0 0 0 / 14%);
@@ -69,6 +82,19 @@
     --on-pivot: #111111;
     --up-text: #52d3aa;
     --down-text: #ff9284;
+    --heat-n4: #ef6a59;
+    --heat-n3: #b5392b;
+    --heat-n2: #7c2d24;
+    --heat-n1: #4a2320;
+    --heat-0: #333333;
+    --heat-p1: #1c3d31;
+    --heat-p2: #1b6049;
+    --heat-p3: #17855f;
+    --heat-p4: #34b886;
+    --heat-ink: #f2f2f2;
+    --heat-ink-strong: #ffffff;
+    --heat-ink-n4: #0c0c0c;
+    --heat-ink-p4: #0c0c0c;
     --warn-bg: #352b10;
     --warn-ink: #f1d68d;
     --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 10px 30px rgb(0 0 0 / 30%);
@@ -111,6 +137,19 @@
   --on-pivot: #111111;
   --up-text: #52d3aa;
   --down-text: #ff9284;
+  --heat-n4: #ef6a59;
+  --heat-n3: #b5392b;
+  --heat-n2: #7c2d24;
+  --heat-n1: #4a2320;
+  --heat-0: #333333;
+  --heat-p1: #1c3d31;
+  --heat-p2: #1b6049;
+  --heat-p3: #17855f;
+  --heat-p4: #34b886;
+  --heat-ink: #f2f2f2;
+  --heat-ink-strong: #ffffff;
+  --heat-ink-n4: #0c0c0c;
+  --heat-ink-p4: #0c0c0c;
   --warn-bg: #352b10;
   --warn-ink: #f1d68d;
   --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 10px 30px rgb(0 0 0 / 30%);
@@ -2079,6 +2118,319 @@ html.intro .site-footer {
   }
 }
 
+/* Heatmap */
+
+.heat-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.heat-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  min-width: 0;
+}
+
+.heat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.heat-date {
+  flex: 0 1 19rem;
+  min-width: 0;
+}
+
+.heat-indices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.375rem;
+  padding: 0.3125rem;
+  margin: -0.3125rem;
+}
+
+/* On a phone the indices scroll sideways in two rows, so the map stays near the top. */
+@media (max-width: 40rem) {
+  .heat-indices {
+    grid-template-columns: none;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: minmax(7.5rem, 1fr);
+    grid-auto-flow: column;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
+.heat-indices::-webkit-scrollbar {
+  display: none;
+}
+
+.heat-index {
+  display: grid;
+  gap: 0.0625rem;
+  min-height: 3.25rem;
+  padding: 0.4375rem 0.625rem;
+  border: 0;
+  border-radius: 0.625rem;
+  color: var(--heat-ink);
+  text-align: left;
+  transition: background-color 450ms ease, color 450ms ease, transform 220ms var(--ease), box-shadow 220ms var(--ease);
+}
+
+button.heat-index:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+button.heat-index:active {
+  transform: scale(0.97);
+}
+
+.heat-index[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.heat-index.is-static {
+  opacity: 0.8;
+}
+
+.heat-index-name {
+  overflow: hidden;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heat-index-change {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-summary {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.heat-message {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--surface-2);
+}
+
+.heat-board {
+  position: relative;
+  min-width: 0;
+  transition: opacity 180ms ease;
+}
+
+.heat-board.is-loading {
+  opacity: 0.55;
+}
+
+.heat-map {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.875rem;
+  background: var(--surface);
+  transition: height 520ms var(--ease);
+}
+
+.heat-tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.0625rem;
+  overflow: hidden;
+  padding: 0.125rem;
+  border: 0;
+  border-radius: 0.3125rem;
+  color: var(--heat-ink);
+  line-height: 1.1;
+  text-align: center;
+  transition:
+    translate 560ms var(--ease),
+    width 560ms var(--ease),
+    height 560ms var(--ease),
+    background-color 480ms ease,
+    color 480ms ease,
+    opacity 380ms ease,
+    scale 420ms var(--ease);
+}
+
+.heat-tile:hover {
+  z-index: 2;
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.heat-tile:focus-visible {
+  z-index: 3;
+  outline: 3px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.heat-tile.is-entering {
+  opacity: 0;
+  scale: 0.6;
+}
+
+.heat-tile.is-leaving {
+  z-index: 0;
+  opacity: 0;
+  scale: 0.6;
+  pointer-events: none;
+}
+
+.heat-sym {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heat-pct {
+  font-size: 0.85em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.heat-tile[data-size="name"] .heat-pct,
+.heat-tile[data-size="none"] > span {
+  display: none;
+}
+
+.heat-sector {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: translate 560ms var(--ease), width 560ms var(--ease);
+}
+
+.heat-n4 { background-color: var(--heat-n4); color: var(--heat-ink-n4); }
+.heat-n3 { background-color: var(--heat-n3); color: var(--heat-ink-strong); }
+.heat-n2 { background-color: var(--heat-n2); }
+.heat-n1 { background-color: var(--heat-n1); }
+.heat-p0 { background-color: var(--heat-0); }
+.heat-p1 { background-color: var(--heat-p1); }
+.heat-p2 { background-color: var(--heat-p2); }
+.heat-p3 { background-color: var(--heat-p3); color: var(--heat-ink-strong); }
+.heat-p4 { background-color: var(--heat-p4); color: var(--heat-ink-p4); }
+
+.heat-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  display: grid;
+  gap: 0.25rem;
+  width: max-content;
+  max-width: 16rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--glass);
+  box-shadow: var(--shadow-lift);
+  color: var(--ink);
+  font-size: 0.8125rem;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.heat-tip-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.heat-tip dl {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0.25rem 0 0;
+}
+
+.heat-tip dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.heat-tip dt {
+  color: var(--muted);
+}
+
+.heat-tip dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-list th:nth-child(2),
+.heat-list td:nth-child(2) {
+  text-align: left;
+}
+
+.heat-list .row-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.heat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.875rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.heat-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.heat-swatch {
+  display: inline-block;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 0.25rem;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 8%);
+}
+
+@media (forced-colors: active) {
+  .heat-tile,
+  .heat-index {
+    border: 1px solid CanvasText;
+  }
+}
+
 /* Text never sits on the background itself: it goes on a card, which lets the animals show through faintly.
    The chart's card is a little more solid, so nothing competes with the candles. */
 
@@ -2087,7 +2439,8 @@ html.intro .site-footer {
 .movers,
 .secondary > section,
 .news-column,
-.ipo-tab {
+.ipo-tab,
+.heat-card {
   padding: clamp(1rem, 2.5vw, 1.25rem);
   border: 1px solid var(--line);
   border-radius: 1.25rem;
