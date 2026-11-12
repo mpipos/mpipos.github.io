@@ -60,6 +60,19 @@ const formatPlainDate = (iso) => dateFormat({ day: 'numeric', month: 'short', ye
 const formatShortDate = (iso) => dateFormat({ day: 'numeric', month: 'short' }).format(dateFrom(iso));
 const formatYear = (iso) => dateFormat({ month: 'short', year: 'numeric' }).format(dateFrom(iso));
 
+const updatedFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Kolkata' });
+
+// A small see-through tag on a card's top edge, saying when its data was last collected, in India time.
+// A plain date (from a page built before times were recorded) shows without a time.
+function updatedBadge(when) {
+  if (!when) return null;
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(when);
+  const time = isDateOnly ? dateFrom(when) : new Date(when);
+  if (Number.isNaN(time.getTime())) return null;
+  const text = isDateOnly ? formatPlainDate(when) : `${updatedFormat.format(time)} IST`;
+  return el('span', { class: 'updated-badge', title: `When this was last updated: ${text}` }, el('span', { class: 'updated-dot', 'aria-hidden': 'true' }), `Updated ${text}`);
+}
+
 const directionClass = (value) => (value > 0 ? 'is-up' : value < 0 ? 'is-down' : null);
 const safeUrl = (url) => (typeof url === 'string' && url.startsWith('https://') ? url : null);
 

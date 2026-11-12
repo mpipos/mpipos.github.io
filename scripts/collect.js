@@ -377,6 +377,10 @@ async function readIpos(sessionsOf, actionsOf, today) {
 }
 
 const today = new Date().toISOString().slice(0, 10);
+// When this update collected its data, which the page shows on each card.
+const builtAt = new Date().toISOString();
+// Headlines that couldn't be read keep the time of the update that last read them.
+const newsTime = (symbol, before) => (headlines.has(symbol) ? builtAt : before?.newsAt ?? null);
 const fromIso = new Date(Date.now() - Math.round(YEARS * 365.25) * DAY_MS).toISOString().slice(0, 10);
 
 const previousMeta = JSON.parse(readCache(`${SITE_FOLDER}/meta.json`) ?? 'null');
@@ -491,6 +495,8 @@ for (const index of NSE_INDICES) {
     news: headlines.get(index.symbol) ?? previousOf(index.symbol)?.news ?? [],
     newsUrl: newsSearchUrl(index.news),
     officialUrl: 'https://www.niftyindices.com/reports/historical-data',
+    updatedAt: builtAt,
+    newsAt: newsTime(index.symbol, previousOf(index.symbol)),
   });
 }
 
@@ -500,7 +506,8 @@ for (const index of OTHER_INDICES) {
   const news = headlines.get(index.symbol) ?? before?.news ?? [];
   if (!chart) {
     if (!before) throw new Error(`No prices available for ${index.symbol}`);
-    saveInstrument({ ...before, news });
+    // The earlier prices keep the time they were collected.
+    saveInstrument({ ...before, news, newsAt: newsTime(index.symbol, before) });
     continue;
   }
   const { kept: sessions, rejected } = keepPossible(completedSessions(chart));
@@ -518,6 +525,8 @@ for (const index of OTHER_INDICES) {
     actions: [],
     news,
     newsUrl: newsSearchUrl(index.news, index.region),
+    updatedAt: builtAt,
+    newsAt: newsTime(index.symbol, before),
   });
 }
 
@@ -572,6 +581,8 @@ for (const symbol of targets) {
     news: headlines.get(symbol) ?? before?.news ?? [],
     newsUrl: newsSearchUrl(`"${shortName}" (share OR stock)`),
     officialUrl: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
+    updatedAt: builtAt,
+    newsAt: newsTime(symbol, before),
   });
 }
 const nseStockCount = list.filter(([, , type]) => type === 'Stock').length;
@@ -599,6 +610,7 @@ for (const [code, company] of bse.companies) {
     news: [],
     newsUrl: newsSearchUrl(`"${companyShortName(name)}" (share OR stock)`),
     officialUrl: bsePageUrl(company.name, company.symbol, code),
+    updatedAt: builtAt,
   });
 }
 
@@ -607,6 +619,7 @@ const indexCount = list.length - stockEntries.length;
 const bseCount = stockEntries.length - nseStockCount;
 const meta = {
   builtOn: today,
+  builtAt,
   coverage: `${stockEntries.length.toLocaleString('en-IN')} stocks and ${indexCount} indices`,
   counts: { nse: nseStockCount, sme: smeSymbols.size, bse: bseCount, indices: indexCount },
   calendars: { NSE: tradingDays.map(toDay), BSE: bse.days.map(toDay) },
@@ -623,6 +636,7 @@ try {
     (symbol) => allActions.get(symbol) ?? [],
     today,
   );
+  ipos.updatedAt = builtAt;
 } catch (error) {
   log(`IPO data unavailable, so the page keeps what it had: ${error.message}`);
   ipos = JSON.parse(readCache(`${SITE_FOLDER}/ipos.json`) ?? 'null');

@@ -15,6 +15,7 @@ const nextDay = document.querySelector('#next-day');
 const result = document.querySelector('#result');
 const announcer = document.querySelector('#announcer');
 const presetsHost = document.querySelector('#presets');
+const vixRangeHost = document.querySelector('#vix-range');
 const progress = document.querySelector('#progress');
 const views = { pivot: document.querySelector('#view-pivot'), heatmap: document.querySelector('#view-heatmap'), ipos: document.querySelector('#view-ipos') };
 const menuLinks = [...document.querySelectorAll('.menu a')];
@@ -711,6 +712,7 @@ function render({ fresh = false } = {}) {
     section.style.setProperty('--i', index);
   });
   result.replaceChildren(...sections);
+  stampCards(item);
   drawChart?.();
 
   const selectedRow = result.querySelector('tr.is-selected');
@@ -722,6 +724,22 @@ function render({ fresh = false } = {}) {
   announcer.textContent = session
     ? `${item.name}: pivot ${formatNumber(session.pivot, item.currency, item.decimals)} for ${formatDate(data.date)}.`
     : noSessionText(data).title;
+}
+
+// Each card says when its own data was last collected. Prices come with the stock or index itself,
+// gainers and losers with the whole update, and headlines from whenever they were last read.
+function stampCards(item) {
+  const stamp = (node, when) => {
+    const badge = node && updatedBadge(when);
+    if (badge) node.append(badge);
+  };
+  const prices = item.updatedAt;
+  stamp(result.querySelector('.hero'), prices);
+  stamp(result.querySelector('.chart-card'), prices);
+  stamp(result.querySelector('.fundamentals'), prices);
+  stamp(result.querySelector('.secondary > section:not(.movers)'), prices);
+  stamp(result.querySelector('.movers'), market.updatedAt);
+  stamp(result.querySelector('.news-column'), item.newsAt ?? prices);
 }
 
 async function showCurrent({ fresh = false } = {}) {
@@ -876,7 +894,7 @@ async function loadIpos() {
     const response = await fetch(dataUrl('ipos.json'));
     if (!response.ok) throw new Error('IPO data unavailable');
     const data = await response.json();
-    transition(() =>
+    transition(() => {
       renderIpoView(host, data, {
         canOpen: (symbol) => market.has(symbol),
         open: (symbol) => {
@@ -884,8 +902,10 @@ async function loadIpos() {
           location.hash = '#pivot';
           selectInstrument(symbol, entry.label ?? entry.name);
         },
-      }),
-    );
+      });
+      const badge = updatedBadge(data.updatedAt ?? data.asOf);
+      if (badge) host.querySelector('.ipo-hero')?.append(badge);
+    });
   } catch {
     iposLoaded = false;
     host.replaceChildren(
@@ -941,6 +961,7 @@ async function loadHeatmap() {
       loadDay: loadHeatDay,
       tradingDays,
       initialDate: tradingDays.at(-1),
+      updatedAt: market.updatedAt,
       savedGroup: readSaved('heatGroup') ?? 'NIFTY 50',
       savedLayout: readSaved('heatLayout'),
       onChange: ({ group, layout }) => {
@@ -1029,6 +1050,55 @@ function renderPresets() {
   );
 }
 
+/* NIFTY 50's expected range from India VIX. VIX is the yearly volatility the options market expects, as a
+   percentage, so dividing by √365 gives one day's expected move and by √12 one month's. NIFTY stays inside
+   each range about two times in three (one standard deviation). */
+
+const VIX_HORIZONS = [
+  { label: 'Next day', divisor: Math.sqrt(365), root: '√365' },
+  { label: 'Next month', divisor: Math.sqrt(12), root: '√12' },
+];
+
+function renderVixRange() {
+  const vix = market.strip.find(({ symbol }) => symbol === 'INDIA VIX');
+  const nifty = market.strip.find(({ symbol }) => symbol === 'NIFTY 50');
+  if (!vix?.close || !nifty?.close) return;
+  const asOf = market.tradingDays('NSE').at(-1);
+  const points = (value) => formatNumber(value, 'INR', 0);
+
+  const horizon = ({ label, divisor, root }) => {
+    const percent = vix.close / divisor;
+    const move = (nifty.close * percent) / 100;
+    return el(
+      'div',
+      { class: 'vix-band' },
+      el('h3', {}, label),
+      el('p', { class: 'vix-move' }, `±${formatNumber(percent)}%`, el('span', {}, ` ±${points(move)} points`)),
+      el('p', { class: 'vix-span' }, `${points(nifty.close - move)} to ${points(nifty.close + move)}`),
+      el('p', { class: 'vix-formula' }, `VIX ÷ ${root} = ${formatNumber(vix.close)} ÷ ${formatNumber(divisor)}`),
+    );
+  };
+
+  vixRangeHost.replaceChildren(
+    el(
+      'div',
+      { class: 'vix-head' },
+      el('h2', { id: 'vix-range-title' }, 'NIFTY 50 expected range'),
+      el(
+        'p',
+        {},
+        'From India VIX ',
+        el('button', { type: 'button', class: 'vix-link', onclick: () => selectInstrument(vix.symbol, vix.label) }, formatNumber(vix.close)),
+        ` and NIFTY 50 at ${formatNumber(nifty.close)}, at the close on ${formatPlainDate(asOf)}.`,
+      ),
+    ),
+    ...VIX_HORIZONS.map(horizon),
+    el('p', { class: 'vix-note' }, 'VIX is the yearly move the options market expects, so NIFTY usually stays inside each range, about two times in three. An estimate, not a forecast.'),
+    updatedBadge(market.updatedAt),
+  );
+  vixRangeHost.hidden = false;
+}
+
 document.querySelector('#controls').addEventListener('submit', (event) => event.preventDefault());
 dateInput.addEventListener('change', () => {
   dateTouched = true;
@@ -1060,6 +1130,7 @@ status.replaceChildren(
 status.classList.toggle('is-stale', isStale);
 
 renderPresets();
+renderVixRange();
 dateInput.value = market.maxDate;
 const firstPreset = market.strip[0];
 selectInstrument(firstPreset.symbol, firstPreset.label);

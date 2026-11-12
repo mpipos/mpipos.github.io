@@ -27,7 +27,7 @@ const bandClass = (percent) => {
   return `heat-${band < 0 ? 'n' : 'p'}${Math.abs(band)}`;
 };
 
-function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, savedGroup, savedLayout, onChange }) {
+function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, updatedAt, savedGroup, savedLayout, onChange }) {
   const stocks = info.stocks.map(([symbol, name, sector, cap]) => ({ symbol, name, sector: info.sectors[sector] ?? 'Other', cap }));
   const indices = info.indices.map(([symbol, label, members]) => ({ symbol, label, members }));
   const openable = indices.filter(({ members }) => members?.length);
@@ -449,6 +449,7 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
         message,
         board,
         legend,
+        updatedBadge(updatedAt),
         el('p', { class: 'section-note' }, 'Treemap tiles are sized by the latest market cap and grouped by sector. Index members are today’s, from NSE. Moves leave out corporate-action days and stocks that had not traded for over a week. From NSE’s daily reports.'),
       ),
     ),

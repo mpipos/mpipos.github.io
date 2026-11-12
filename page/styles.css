@@ -2465,6 +2465,159 @@ button.heat-index:active {
   }
 }
 
+/* NIFTY 50 expected range, from India VIX */
+
+.vix-range {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.vix-head h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.vix-head p {
+  margin: 0.25rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.vix-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.2em;
+}
+
+.vix-link:hover {
+  text-decoration-color: var(--ink);
+}
+
+.vix-band {
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.875rem;
+  background: var(--surface-2);
+}
+
+.vix-band h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vix-move {
+  margin: 0.25rem 0 0;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.vix-move span {
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  font-weight: 550;
+  letter-spacing: 0;
+}
+
+.vix-span {
+  margin: 0.125rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.vix-formula {
+  margin: 0.375rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.vix-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 60rem) {
+  .vix-range {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vix-head {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 26rem) {
+  .vix-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* "Updated" tags: small and see-through, sitting on each card's top edge so they never cover its content. */
+
+.hero,
+.chart-card,
+.fundamentals,
+.secondary > section,
+.movers,
+.news-column,
+.heat-card,
+.ipo-hero {
+  position: relative;
+}
+
+.updated-badge {
+  position: absolute;
+  top: 0;
+  right: clamp(0.875rem, 2.5vw, 1.25rem);
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.1875rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 64%, transparent);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  white-space: nowrap;
+  translate: 0 -50%;
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+}
+
+.updated-dot {
+  flex: none;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.65;
+}
+
 /* Text never sits on the background itself: it goes on a card, which lets the animals show through faintly.
    The chart's card is a little more solid, so nothing competes with the candles. */
 
@@ -2474,7 +2627,8 @@ button.heat-index:active {
 .secondary > section,
 .news-column,
 .ipo-tab,
-.heat-card {
+.heat-card,
+.vix-range {
   padding: clamp(1rem, 2.5vw, 1.25rem);
   border: 1px solid var(--line);
   border-radius: 1.25rem;
