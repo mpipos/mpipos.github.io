@@ -11,5 +11,6 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 # The pages and the day's official data come from the published site, so nothing needs building here.
-# It stops by itself at 4 PM, after the market's close, unless started later than that.
-npm run live -- --until 16:00
+# It runs until 9:30 PM, when the evening's official update has arrived, so after the market closes you still
+# see today's closing prices. Then the site shows the official ones, as it does whenever the live mode is off.
+npm run live -- --until 21:30

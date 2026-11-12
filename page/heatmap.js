@@ -440,6 +440,8 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
   }
 
   live?.on((kind) => {
+    // Live prices stopped, so the map shows the official closes again, and returns to live when they resume.
+    if (kind === 'reset' && state.live) return goTo(state.date);
     if (kind !== 'quotes' || !state.live) return;
     // Equal tiles re-sort by the move, so they're redrawn less often than the treemap, whose tiles only recolour.
     if (state.layout === 'tiles' && Date.now() - lastTilesDraw < 5000) return;

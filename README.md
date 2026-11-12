@@ -27,11 +27,11 @@ The published site shows official end-of-day data to everyone. On your own Mac i
 
 Kite's terms say its live data "cannot be displayed to the public at large", and allow it only in a private interface for your own use. So the live prices come from a small server that runs only on your Mac, answers only your Mac's browser, and is never published or shared. It only reads prices and never places orders.
 
-**Start it:** double-click **Start live mode.command**. The first time it asks for your Kite Connect API key (from the app your algo uses, at developers.kite.trade). It opens http://127.0.0.1:4174, and stops by itself at 4 PM.
+**Start it:** double-click **Start live mode.command**. The first time it asks for your Kite Connect API key (from the app your algo uses, at developers.kite.trade). It opens https://mpipos.github.io/?live=on in Chrome, and runs until 9:30 PM, when the evening's official update is in.
 
 **Today's token:** the live mode reuses the access token your algo gets each morning, so it needs no second plan or login. Either paste it into the box at the top of the page each morning, or let your algo save it to a file and add `KITE_ACCESS_TOKEN_FILE=/path/to/that/file` to `.env.kite`. With the file, the live mode picks up each new day's token by itself.
 
-**mpipos.github.io, live on your Mac only:** open https://mpipos.github.io/?live=on once on your Mac. From then on, that browser shows live prices whenever the live mode is running, and the last official prices when it isn't. Everyone else's browser never looks for the live mode, and keeps the last official update. `?live=off` turns it off. Some browsers ask once whether the site may reach your own computer, and Brave may block it, in which case http://127.0.0.1:4174 still works.
+**mpipos.github.io, live on your Mac only:** a browser opened once with https://mpipos.github.io/?live=on (the live mode does this itself) gets a **Live** button in the top bar. Everyone else's page has no button, never looks for the live mode, and shows the last official update. With the button on, the page shows live prices while the live mode is running. If it stops, because the Mac is off or asleep, or your algo hasn't logged in, the page goes back to the official prices within about 20 seconds, and returns to live when they resume. Chrome asks once whether the site may reach your own computer; allow it. Brave may block it, in which case http://127.0.0.1:4174 still works. `?live=off` removes the button from that browser.
 
 **Automatic:** `npm run automate` sets your Mac to open the live mode at 9:00 AM and to start GitHub's site update at 9:00 PM, on weekdays. If the Mac is asleep then, they run when it wakes. `npm run automate -- --remove` turns both off.
 

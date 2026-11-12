@@ -509,8 +509,13 @@ const server = createServer(async (request, response) => {
   }
 });
 
+// Opens your own site, live on this Mac. Chrome is used where it's installed, because it lets a public site
+// reach this computer once you allow it, and ?live=on makes that browser show the Live button.
+const CHROME = '/Applications/Google Chrome.app';
 const openPage = () => {
-  if (process.platform === 'darwin' && !args.includes('--no-open')) execFile('open', [ORIGIN], () => {});
+  if (process.platform !== 'darwin' || args.includes('--no-open')) return;
+  const page = DEMO || LOCAL || process.env.LIVE_SITE ? ORIGIN : `${SITE}/?live=on`;
+  execFile('open', existsSync(CHROME) && page !== ORIGIN ? ['-a', CHROME, page] : [page], () => {});
 };
 
 // Started again while already running (say, by the 9 AM start after you'd opened it yourself), it just opens the page.
@@ -521,7 +526,7 @@ server.on('error', (error) => {
   process.exit(0);
 });
 
-// --until 16:00 stops it after the market closes, unless it was started later than that.
+// --until 21:30 stops it once the evening's official update is in, unless it was started later than that.
 function stopAtCloseOfDay() {
   if (!UNTIL || !/^\d{1,2}:\d{2}$/.test(UNTIL)) return;
   const [hours, minutes] = UNTIL.split(':').map(Number);
@@ -531,7 +536,7 @@ function stopAtCloseOfDay() {
   const wait = istStop.getTime() - 330 * 60_000 - now.getTime();
   if (wait <= 0) return;
   setTimeout(() => {
-    log(`It’s ${UNTIL}, after the market’s close, so the live mode stops. It starts again on the next weekday morning.`);
+    log(`It’s ${UNTIL}, so the live mode stops and the site shows the official prices. It starts again on the next weekday morning.`);
     process.exit(0);
   }, wait);
 }

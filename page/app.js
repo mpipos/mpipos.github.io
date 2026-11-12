@@ -1289,6 +1289,15 @@ renderVixRange();
 if (liveFeed) {
   renderLivePill(document.querySelector('.topbar-end'));
   liveFeed.on((kind, symbols) => {
+    // Live prices stopped (the Mac's live mode off, or paused): every view goes back to the official prices.
+    if (kind === 'reset') {
+      renderPresets();
+      for (const button of presetsHost.querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.symbol === instrument?.symbol));
+      renderVixRange();
+      liveHooks.hero?.();
+      liveHooks.movers?.();
+      return;
+    }
     if (kind !== 'quotes') return;
     refreshPresetsLive();
     if (symbols.includes('INDIA VIX') || symbols.includes('NIFTY 50')) renderVixRange();

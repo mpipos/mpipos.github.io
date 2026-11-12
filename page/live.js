@@ -25,21 +25,55 @@ const liveBase = LIVE_MODE ? '' : LIVE_SERVER;
 const liveTimeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Kolkata' });
 const formatLiveTime = (time) => `${liveTimeFormat.format(new Date(time))} IST`;
 
+// Whether this browser has chosen to pause live prices, with the Live button. Remembered per browser.
+function livePausedHere() {
+  try {
+    return localStorage.getItem('livePaused') === '1';
+  } catch {
+    return false;
+  }
+}
+
+// If the live mode goes quiet for this long (the Mac asleep, the live mode stopped), the page goes back to
+// the official prices, which update by themselves every evening as they always have.
+const LIVE_GRACE_MS = 20_000;
+
 function createLiveFeed() {
   if (!LIVE_MODE && !LIVE_REMOTE) return null;
   const listeners = new Set();
   const quotes = new Map();
   const watched = new Set();
-  let status = { mode: LIVE_MODE ?? 'kite', loggedIn: false, connected: false, remote: LIVE_REMOTE };
+  let status = { mode: 'off', loggedIn: false, connected: false, remote: LIVE_REMOTE };
   let lastTick = null;
-  let reached = false;
+  let source = null;
+  let retry = null;
+  let grace = null;
+  let paused = livePausedHere();
   const notify = (kind, symbols = []) => listeners.forEach((listener) => listener(kind, symbols));
 
+  // Drops every live price, so each view shows the official one again.
+  const forget = () => {
+    clearTimeout(grace);
+    grace = null;
+    const had = quotes.size > 0;
+    quotes.clear();
+    watched.clear();
+    lastTick = null;
+    if (had) notify('reset');
+  };
+
   const connect = () => {
-    const source = new EventSource(`${liveBase}/live/stream`);
+    clearTimeout(retry);
+    if (paused) return;
+    let reached = false;
+    source = new EventSource(`${liveBase}/live/stream`);
     source.addEventListener('status', (event) => {
       reached = true;
+      clearTimeout(grace);
+      grace = null;
       status = { ...JSON.parse(event.data), remote: LIVE_REMOTE };
+      // Waiting for today's token means no live prices, so the official ones show meanwhile.
+      if (!status.loggedIn && status.mode !== 'demo') forget();
       notify('status');
     });
     source.addEventListener('quotes', (event) => {
@@ -49,16 +83,20 @@ function createLiveFeed() {
       notify('quotes', Object.keys(q));
     });
     source.addEventListener('error', () => {
-      // On the published site the live mode may simply not be running yet, so it looks again each minute.
-      if (LIVE_REMOTE && !reached) {
+      status = { ...status, connected: false, mode: reached ? status.mode : 'off', message: 'The live mode isn’t running on this computer, so these are the last official prices.' };
+      notify('status');
+      if (!reached) {
+        // Not running yet: look again each minute, quietly.
         source.close();
-        status = { mode: 'off', loggedIn: false, connected: false, remote: true, message: 'The live mode isn’t running on this computer, so these are the last official prices.' };
-        notify('status');
-        setTimeout(connect, 60_000);
+        retry = setTimeout(connect, 60_000);
         return;
       }
-      status = { ...status, connected: false, message: 'Lost the connection to the live mode. Is it still running?' };
-      notify('status');
+      // It was running and stopped: the browser keeps trying, and after a short wait the official prices return.
+      grace ??= setTimeout(() => {
+        status = { ...status, mode: 'off' };
+        forget();
+        notify('status');
+      }, LIVE_GRACE_MS);
     });
   };
   connect();
@@ -71,6 +109,26 @@ function createLiveFeed() {
     get lastTick() {
       return lastTick;
     },
+    get paused() {
+      return paused;
+    },
+    // The Live button: off shows the official prices only, on goes back to live ones.
+    setPaused(next) {
+      paused = next;
+      try {
+        if (next) localStorage.setItem('livePaused', '1');
+        else localStorage.removeItem('livePaused');
+      } catch {
+        // Without storage the choice lasts until the page closes.
+      }
+      if (next) {
+        source?.close();
+        clearTimeout(retry);
+        status = { mode: 'paused', loggedIn: false, connected: false, remote: LIVE_REMOTE };
+        forget();
+        notify('status');
+      } else connect();
+    },
     // The latest price, with the day's move against the previous close.
     quote(symbol) {
       const values = quotes.get(symbol);
@@ -82,7 +140,7 @@ function createLiveFeed() {
     symbols: () => [...quotes.keys()],
     // Asks the live server to stream a stock that isn't in the heatmap, such as the one open on the page.
     watch(symbol) {
-      if (!symbol || watched.has(symbol) || quotes.has(symbol)) return;
+      if (paused || !symbol || watched.has(symbol) || quotes.has(symbol)) return;
       watched.add(symbol);
       fetch(`${liveBase}/live/subscribe?symbol=${encodeURIComponent(symbol)}`).catch(() => watched.delete(symbol));
     },
@@ -100,7 +158,15 @@ const liveFeed = createLiveFeed();
 function renderLivePill(host) {
   if (!liveFeed) return;
   const pill = el('div', { class: 'live-pill', role: 'status' });
-  host.prepend(pill);
+  // The Live button exists only in a browser on your own Mac: one opened with ?live=on, or the live mode's
+  // own page. Everyone else's page never has it.
+  const toggle = el(
+    'button',
+    { type: 'button', class: 'live-toggle', title: 'Live prices from your Kite account, on this Mac only', onclick: () => liveFeed.setPaused(!liveFeed.paused) },
+    el('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+    'Live',
+  );
+  host.prepend(toggle, pill);
   document.body.classList.add('has-live');
   let formOpen = false;
 
@@ -143,14 +209,19 @@ function renderLivePill(host) {
 
   const draw = () => {
     const { mode, loggedIn, connected, user, message, needs } = liveFeed.status;
-    pill.classList.toggle('is-on', connected && Boolean(liveFeed.lastTick));
+    const isLive = connected && Boolean(liveFeed.lastTick);
+    toggle.setAttribute('aria-pressed', String(!liveFeed.paused));
+    toggle.classList.toggle('is-on', isLive);
+    pill.hidden = liveFeed.paused;
+    if (liveFeed.paused) return;
+    pill.classList.toggle('is-on', isLive);
     pill.classList.toggle('is-demo', mode === 'demo');
     pill.classList.toggle('is-asking', !loggedIn && !liveFeed.status.remote && (needs === 'key' || needs === 'token'));
     if (mode === 'demo') {
-      return pill.replaceChildren(el('span', { class: 'live-dot', 'aria-hidden': 'true' }), `Demo prices, made up${liveFeed.lastTick ? ` · ${formatLiveTime(liveFeed.lastTick)}` : ''}`);
+      return pill.replaceChildren(`Demo prices, made up${liveFeed.lastTick ? ` · ${formatLiveTime(liveFeed.lastTick)}` : ''}`);
     }
     if (mode === 'off') {
-      return pill.replaceChildren(el('span', { class: 'live-dot', 'aria-hidden': 'true' }), el('span', { title: message ?? '' }, 'Live mode not running · last official prices'));
+      return pill.replaceChildren(el('span', { title: message ?? '' }, 'Mac’s live mode is off · official prices'));
     }
     // On the published site, today's token is pasted in the live mode's own page, which is this computer's.
     if (!loggedIn && liveFeed.status.remote && (needs === 'key' || needs === 'token')) {
@@ -167,10 +238,7 @@ function renderLivePill(host) {
     }
     formOpen = false;
     const when = liveFeed.lastTick ? ` · ${formatLiveTime(liveFeed.lastTick)}` : ' · waiting for prices';
-    pill.replaceChildren(
-      el('span', { class: 'live-dot', 'aria-hidden': 'true' }),
-      connected ? `Live via Kite${user ? ` (${user})` : ''}${when}` : message ?? 'Connecting to Kite…',
-    );
+    pill.replaceChildren(connected ? `Kite${user ? ` (${user})` : ''}${when}` : message ?? 'Connecting to Kite…');
   };
   liveFeed.on(draw);
   draw();
