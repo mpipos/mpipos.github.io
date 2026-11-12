@@ -29,17 +29,18 @@ Kite's terms say its live data "cannot be displayed to the public at large", so 
 
 It needs a Kite Connect plan with live streaming (Connect, ₹500 a month). If you already have one for your own trading code, the live mode can share it at no extra cost by reusing that code's daily access token, which also avoids a second login.
 
-Create a file named `.env.kite` in this folder. Git ignores it. Then choose one way to sign in:
+**The simple way:** double-click **Start live mode.command** in this folder (or run `npm run live`).
 
-- **Share your trading code's login (no second plan, no second login):**
-  ```
-  KITE_API_KEY=your_api_key
-  KITE_ACCESS_TOKEN=todays_access_token
-  ```
-  Or, if your trading code saves the token to a file each morning, point to that file instead, and the live mode reads it at each start: `KITE_ACCESS_TOKEN_FILE=/path/to/token.txt` (plain text, or JSON with an `access_token`).
-- **Log in here:** set `KITE_API_KEY` and `KITE_API_SECRET`, and set the app's redirect URL to `http://127.0.0.1:4174/live/callback`. Don't do this with the app your trading code uses, as changing its redirect URL would break that code's login.
+1. The first time, paste your Kite Connect API key when asked.
+2. Each day, after your algo logs in to Kite, paste that day's access token when asked.
+3. The site opens in your browser with live prices. Close the Terminal window to stop.
 
-Build the site once (`npm run build`, or `npm run assemble` if the data is already collected), run `npm run live`, and open http://127.0.0.1:4174. Kite's access tokens last until 6 AM the next day.
+Both are saved in `.env.kite`, which git ignores, so the next start that day asks for nothing. A token is asked for again after 6 AM, when Kite's tokens expire.
+
+Other ways to set it up, in `.env.kite`:
+
+- `KITE_ACCESS_TOKEN_FILE=/path/to/token.txt` reads the token your algo saves each morning (plain text, or JSON with an `access_token`), so you never paste it.
+- `KITE_API_KEY` and `KITE_API_SECRET` log in here instead, with the app's redirect URL set to `http://127.0.0.1:4174/live/callback`. Don't do this with your algo's app, as changing its redirect URL would break your algo's login.
 
 To try the live screens without a Kite account, run `npm run live -- --demo`. Its prices are made up, and the page says so.
 

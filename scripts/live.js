@@ -2,16 +2,19 @@
 // Zerodha Kite Connect account. Kite's terms allow its live data in a private interface for your own use,
 // not on a public site, so this binds to 127.0.0.1 and never publishes anything.
 //
-//   npm run live            log in to Kite in the browser, then prices stream while the market is open
+//   npm run live            asks for your API key once and each day's access token, then opens the page
 //   npm run live -- --demo  made-up prices, to try the live screens without a Kite account
+//   Or double-click "Start live mode.command" in this folder, which runs npm run live.
 //
 // Settings go in .env.kite, which git ignores. Either log in here with your app's key and secret:
 //   KITE_API_KEY=…  and  KITE_API_SECRET=…
 // or reuse the access token your own trading code already gets each morning, so there's no second login:
 //   KITE_API_KEY=…  and  KITE_ACCESS_TOKEN=…  (or KITE_ACCESS_TOKEN_FILE=/path/to/the/file/it/saves)
+import { execFile } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { createInterface } from 'node:readline/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { instrumentFile } from '../lib/market.js';
@@ -48,6 +51,52 @@ function readEnv() {
 if (!existsSync(join(DIST, 'index.html'))) {
   console.error('Build the site first: npm run build (or npm run assemble).');
   process.exit(1);
+}
+
+// Kite's access tokens last until 6 AM India time on the day after they're issued.
+const nextSixAmIst = (from) => {
+  const sixAmUtc = new Date(from);
+  sixAmUtc.setUTCHours(0, 30, 0, 0); // 06:00 in India
+  if (sixAmUtc <= from) sixAmUtc.setUTCDate(sixAmUtc.getUTCDate() + 1);
+  return sixAmUtc.getTime();
+};
+
+function writeEnv(settings) {
+  const lines = ['# Settings for npm run live. Git ignores this file, so it stays on this computer.', ...Object.entries(settings).filter(([, value]) => value).map(([key, value]) => `${key}=${value}`)];
+  writeFileSync(ENV_FILE, `${lines.join('\n')}\n`);
+  chmodSync(ENV_FILE, 0o600);
+}
+
+async function ask(question) {
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await prompt.question(question)).trim();
+  prompt.close();
+  return answer;
+}
+
+// The simple way in: when nothing else is set up, ask in the terminal for the API key once, and for a new
+// access token whenever the saved one has passed 6 AM. Both are saved in .env.kite for next time.
+const saved = readEnv();
+const setUpElsewhere = process.env.KITE_ACCESS_TOKEN || saved.KITE_ACCESS_TOKEN_FILE || saved.KITE_API_SECRET || process.env.KITE_API_SECRET;
+if (!DEMO && !setUpElsewhere && process.stdin.isTTY) {
+  let changed = false;
+  if (!saved.KITE_API_KEY) {
+    console.log('\nFirst time: your Kite Connect API key is in the app your algo uses, at https://developers.kite.trade');
+    saved.KITE_API_KEY = await ask('Paste your API key and press Enter: ');
+    changed = true;
+  }
+  const tokenTooOld = !saved.KITE_TOKEN_SAVED_AT || Date.now() >= nextSixAmIst(new Date(saved.KITE_TOKEN_SAVED_AT));
+  if (!saved.KITE_ACCESS_TOKEN || tokenTooOld) {
+    console.log('\nToday’s access token is the one your algo got when it logged in to Kite this morning.');
+    saved.KITE_ACCESS_TOKEN = await ask('Paste today’s access token and press Enter: ');
+    saved.KITE_TOKEN_SAVED_AT = new Date().toISOString();
+    changed = true;
+  }
+  if (!saved.KITE_API_KEY || !saved.KITE_ACCESS_TOKEN) {
+    console.error('Both are needed for live prices. To try the screens without them: npm run live -- --demo');
+    process.exit(1);
+  }
+  if (changed) writeEnv(saved);
 }
 
 const env = readEnv();
@@ -94,13 +143,6 @@ function record(symbol, tick) {
 }
 
 /* Kite session. The access token lasts until 6 AM India time the next day, so it's kept on disk until then. */
-
-const nextSixAmIst = (from) => {
-  const sixAmUtc = new Date(from);
-  sixAmUtc.setUTCHours(0, 30, 0, 0); // 06:00 in India
-  if (sixAmUtc <= from) sixAmUtc.setUTCDate(sixAmUtc.getUTCDate() + 1);
-  return sixAmUtc.getTime();
-};
 
 let session = null;
 function loadSession() {
@@ -338,7 +380,9 @@ createServer(async (request, response) => {
     response.writeHead(404).end('Not found');
   }
 }).listen(PORT, HOST, () => {
-  log(`Personal live mode at http://${HOST}:${PORT} (only on this computer).`);
+  log(`Personal live mode at http://${HOST}:${PORT} (only on this computer). Close this window or press Ctrl+C to stop.`);
+  // Opens the page in the browser, so starting the live mode is one step.
+  if (process.platform === 'darwin' && !process.argv.includes('--no-open')) execFile('open', [`http://${HOST}:${PORT}`], () => {});
   if (DEMO) return startDemo();
   const borrowed = reusesToken ? borrowedToken() : null;
   if (reusesToken && !borrowed) log(`Couldn’t read the access token${tokenFile ? ` from ${tokenFile}` : ''}.`);
