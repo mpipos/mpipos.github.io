@@ -48,7 +48,6 @@ import {
   toIsoDate,
   toNumber,
 } from './sources/nse.js';
-import { fetchLiveSnapshot } from './sources/nse-live.js';
 import { fetchSebiList, SEBI_DRAFT_LIST, SEBI_RHP_LIST } from './sources/sebi.js';
 import { completedSessions, fetchChart, fetchFinancials, financialsPeriod, missingDays } from './sources/yahoo.js';
 
@@ -393,21 +392,6 @@ const targets = new Set([...listings.keys(), ...smeSymbols]);
 const stockSessions = await readNseStocks(tradingDays, targets, createSymbolResolver(symbolChanges));
 log(`Read NSE prices for ${stockSessions.size} stocks (${smeSymbols.size} on the SME platform).`);
 
-// Before NSE publishes its reports, today's close comes from its live data. Official reports replace it later.
-let provisionalDay = null;
-const live = await fetchLiveSnapshot();
-if (live && live.date > latestDay) {
-  provisionalDay = live.date;
-  let liveStocks = 0;
-  for (const [symbol, row] of live.stocks) {
-    const sessions = stockSessions.get(symbol);
-    if (!sessions?.length || sessions.at(-1).date >= live.date) continue;
-    sessions.push({ date: live.date, ...row, delivery: null });
-    liveStocks++;
-  }
-  log(`NSE hasn't published ${live.date} reports yet, so its live close is used for ${liveStocks} stocks and ${live.indices.size} indices.`);
-}
-
 const bse = await readBseOnlyStocks(tradingDays, nseIsins);
 log(`Read BSE prices for ${bse.sessions.size} companies not on NSE's main board, across ${bse.days.length} days.`);
 
@@ -468,10 +452,7 @@ function saveInstrument(item) {
 }
 
 for (const index of NSE_INDICES) {
-  const official = collectIndexSessions(indexReports, index.report);
-  const liveRow = provisionalDay && live.indices.get(index.report.toLowerCase());
-  if (liveRow) official.push({ date: provisionalDay, ...liveRow });
-  const { kept: sessions } = keepPossible(official);
+  const { kept: sessions } = keepPossible(collectIndexSessions(indexReports, index.report));
   if (!sessions.length) throw new Error(`NSE's report has no rows for ${index.report}`);
   saveInstrument({
     symbol: index.symbol,
@@ -605,12 +586,11 @@ const meta = {
   builtOn: today,
   coverage: `${stockEntries.length.toLocaleString('en-IN')} stocks and ${indexCount} indices`,
   counts: { nse: nseStockCount, sme: smeSymbols.size, bse: bseCount, indices: indexCount },
-  calendars: { NSE: [...tradingDays, ...(provisionalDay ? [provisionalDay] : [])].map(toDay), BSE: bse.days.map(toDay) },
+  calendars: { NSE: tradingDays.map(toDay), BSE: bse.days.map(toDay) },
   newsCoverage: 'NIFTY 500',
   list,
   strip: STRIP_SYMBOLS.map((symbol) => strip.find((item) => item.symbol === symbol)).filter(Boolean),
   latestNseDay,
-  provisionalDay,
 };
 
 let ipos = null;
