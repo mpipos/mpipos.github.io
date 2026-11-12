@@ -1149,11 +1149,10 @@ function renderVixRange() {
     const move = (nifty.close * percent) / 100;
     return el(
       'div',
-      { class: 'vix-band' },
+      { class: 'vix-band', title: `VIX ÷ ${root}: ${formatNumber(vix.close)} ÷ ${formatNumber(divisor)} = ${formatNumber(percent)}%` },
       el('h3', {}, label),
-      el('p', { class: 'vix-move' }, `±${formatNumber(percent)}%`, el('span', {}, ` ±${points(move)} points`)),
-      el('p', { class: 'vix-span' }, `${points(nifty.close - move)} to ${points(nifty.close + move)}`),
-      el('p', { class: 'vix-formula' }, `VIX ÷ ${root} = ${formatNumber(vix.close)} ÷ ${formatNumber(divisor)}`),
+      el('p', { class: 'vix-span' }, `${points(nifty.close - move)} – ${points(nifty.close + move)}`),
+      el('p', { class: 'vix-move' }, `±${formatNumber(percent)}% · ±${points(move)} pts`),
     );
   };
 
@@ -1162,16 +1161,9 @@ function renderVixRange() {
       'div',
       { class: 'vix-head' },
       el('h2', { id: 'vix-range-title' }, 'NIFTY 50 expected range'),
-      el(
-        'p',
-        {},
-        'From India VIX ',
-        el('button', { type: 'button', class: 'vix-link', onclick: () => selectInstrument(vix.symbol, vix.label) }, formatNumber(vix.close)),
-        ` and NIFTY 50 at ${formatNumber(nifty.close)}, at the close on ${formatPlainDate(asOf)}.`,
-      ),
+      el('p', {}, 'India VIX ', el('button', { type: 'button', class: 'vix-link', onclick: () => selectInstrument(vix.symbol, vix.label) }, formatNumber(vix.close)), ` · ${formatPlainDate(asOf)}`),
     ),
     ...VIX_HORIZONS.map(horizon),
-    el('p', { class: 'vix-note' }, 'VIX is the yearly move the options market expects, so NIFTY usually stays inside each range, about two times in three. An estimate, not a forecast.'),
     updatedBadge(market.updatedAt),
   );
   vixRangeHost.hidden = false;
