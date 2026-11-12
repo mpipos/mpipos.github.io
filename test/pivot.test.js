@@ -17,6 +17,7 @@ import {
 import { parseSebiList, splitFilingTitle } from '../scripts/sources/sebi.js';
 import { createHeatmapCollector } from '../lib/heatmap.js';
 import { heatBand, squarify, tileGrid } from '../lib/treemap.js';
+import { instrumentIndex, parseTicks, sessionChecksum } from '../scripts/sources/kite.js';
 import { pivotPoint } from '../lib/pivot.js';
 import { decodeEntities, parseHeadlines } from '../scripts/sources/news.js';
 import {
@@ -868,4 +869,43 @@ test('the heatmap holds each index member and every day’s move', () => {
   assert.deepEqual([...days.keys()], ['2026-11-03', '2026-11-04']);
   assert.deepEqual(days.get('2026-11-04'), { i: [-1, -1, -1], s: [[101, -0.98], [11, 10]] });
   assert.deepEqual(days.get('2026-11-03').i, [null, null, null]);
+});
+
+test('Kite ticks are read from the binary packets, in rupees', () => {
+  const packet = (length, fields) => {
+    const body = Buffer.alloc(length);
+    for (const [offset, value] of fields) body.writeInt32BE(value, offset);
+    return body;
+  };
+  const index = packet(28, [[0, 256265], [4, 2529935], [8, 2538480], [12, 2514295], [16, 2521350], [20, 2525505]]);
+  const stock = packet(44, [[0, 738561], [4, 129850], [16, 5000000], [28, 128000], [32, 130500], [36, 127500], [40, 128800]]);
+  const ltp = packet(8, [[0, 408065], [4, 150025]]);
+  const message = Buffer.concat(
+    [index, stock, ltp].reduce((parts, body) => [...parts, Buffer.from([body.length >> 8, body.length & 255]), body], [Buffer.from([0, 3])]),
+  );
+  assert.deepEqual(parseTicks(message), [
+    { token: 256265, last: 25299.35, high: 25384.8, low: 25142.95, open: 25213.5, close: 25255.05 },
+    { token: 738561, last: 1298.5, volume: 5000000, open: 1280, high: 1305, low: 1275, close: 1288 },
+    { token: 408065, last: 1500.25 },
+  ]);
+  assert.deepEqual(parseTicks(Buffer.from([0])), []);
+});
+
+test('Kite instruments map to the site’s symbols', () => {
+  const tokens = instrumentIndex([
+    { instrument_token: '738561', tradingsymbol: 'RELIANCE', instrument_type: 'EQ', segment: 'NSE', exchange: 'NSE' },
+    { instrument_token: '256265', tradingsymbol: 'NIFTY 50', instrument_type: 'EQ', segment: 'INDICES', exchange: 'NSE' },
+    { instrument_token: '260105', tradingsymbol: 'NIFTY FIN SERVICE', instrument_type: 'EQ', segment: 'INDICES', exchange: 'NSE' },
+    { instrument_token: '265', tradingsymbol: 'SENSEX', instrument_type: 'EQ', segment: 'INDICES', exchange: 'BSE' },
+    { instrument_token: '128083204', tradingsymbol: 'ONLYBSE', instrument_type: 'EQ', segment: 'BSE', exchange: 'BSE' },
+    { instrument_token: '12345', tradingsymbol: 'NIFTY24NOVFUT', instrument_type: 'FUT', segment: 'NFO-FUT', exchange: 'NFO' },
+  ]);
+  assert.equal(tokens.get('RELIANCE'), 738561);
+  assert.equal(tokens.get('NIFTY 50'), 256265);
+  assert.equal(tokens.get('NIFTY FINANCIAL SERVICES'), 260105);
+  assert.equal(tokens.get('SENSEX'), 265);
+  assert.equal(tokens.get('BSE:ONLYBSE'), 128083204);
+  assert.equal(tokens.size, 5);
+  // SHA-256 of "keyrequestsecret", as Kite's login documentation specifies.
+  assert.equal(sessionChecksum('key', 'request', 'secret'), 'e4465f58be6159d2a7f087f4292515e9d631b4f91e056b53e6f14456222ff709');
 });

@@ -9,7 +9,8 @@
     "collect": "node --max-old-space-size=4096 scripts/collect.js",
     "assemble": "node scripts/assemble.js",
     "build": "npm run collect && npm run assemble",
-    "preview": "node scripts/preview.js"
+    "preview": "node scripts/preview.js",
+    "live": "node scripts/live.js"
   },
   "engines": {
     "node": ">=18"

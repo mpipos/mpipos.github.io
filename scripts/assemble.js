@@ -30,6 +30,7 @@ const script = [
   moduleCode(await read('page/ipo.js')),
   moduleCode(await read('lib/treemap.js')),
   moduleCode(await read('page/heatmap.js')),
+  moduleCode(await read('page/live.js')),
   await read('page/app.js'),
 ].join('\n');
 

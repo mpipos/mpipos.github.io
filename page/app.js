@@ -46,7 +46,10 @@ const CANDLE_LEGEND = { day: 'Closed', week: 'Week closed', month: 'Month closed
 const MOVER_GROUPS = [
   { value: 'all', label: 'All stocks' },
   { value: 'nifty500', label: 'NIFTY 500' },
+  // Only in the personal live mode: the day so far, from Kite's live prices.
+  ...(liveFeed ? [{ value: 'live', label: 'Live' }] : []),
 ];
+const MOVERS_SHOWN = 10;
 
 let instrument = null; // { symbol, label }
 let current = null;
@@ -147,6 +150,7 @@ function renderHero(data) {
       {},
       el('p', { class: 'pivot-label' }, el('strong', {}, 'Current price'), `, last close on ${formatDate(latest.date)}`),
       el('p', { class: 'current-price' }, price(latest.close)),
+      liveFeed ? el('div', { class: 'hero-live', hidden: '' }) : null,
     ),
     el(
       'div',
@@ -466,7 +470,7 @@ function renderSessions(data) {
       el('tbody', {}, ...rows),
     ),
   );
-  return el('section', {}, sectionHead('Pivot by session', 'Choose a date to see its pivot'), wrap);
+  return el('section', { class: 'sessions' }, sectionHead('Pivot by session', 'Choose a date to see its pivot'), wrap);
 }
 
 /* Top gainers and losers: the whole market on the chosen date, whichever stock is open above. */
@@ -520,7 +524,25 @@ function renderMovers(date) {
   const body = el('div', { class: 'movers-body is-loading' });
   let day = null;
 
+  const drawLive = () => {
+    const rows = liveFeed
+      .symbols()
+      .filter((symbol) => market.entry(symbol)?.type === 'Stock')
+      .map((symbol) => [symbol, liveFeed.quote(symbol)])
+      .filter(([, quote]) => quote?.changePercent !== null && quote?.changePercent !== undefined)
+      .map(([symbol, quote]) => [symbol, quote.last, Math.round(quote.changePercent * 100) / 100]);
+    const byMove = (sign) => rows.filter(([, , change]) => Math.sign(change) === sign).sort((a, b) => sign * (b[2] - a[2]) || a[0].localeCompare(b[0])).slice(0, MOVERS_SHOWN);
+    note.textContent = liveFeed.lastTick ? `Live at ${formatLiveTime(liveFeed.lastTick)}, from ${formatNumber(rows.length, 'INR', 0)} stocks streaming` : 'Waiting for live prices';
+    body.classList.remove('is-loading');
+    body.replaceChildren(
+      el('div', { class: 'mover-columns' }, moverList('Top gainers', byMove(1)), moverList('Top losers', byMove(-1))),
+      el('p', { class: 'section-note mover-note' }, 'Live price against the previous close, from your Kite account. Covers the NIFTY 500 and the stock open above.'),
+    );
+  };
+  liveHooks.movers = () => chosenMoverGroup === 'live' && drawLive();
+
   const draw = () => {
+    if (chosenMoverGroup === 'live') return drawLive();
     if (!day) return;
     const group = day[chosenMoverGroup];
     note.textContent = `${formatPlainDate(date)}, from ${formatNumber(group.count, 'INR', 0)} stocks that traded`;
@@ -704,7 +726,17 @@ function render({ fresh = false } = {}) {
       session ? renderSessions(data) : null,
       frontHeatmap,
       renderMovers(dateInput.value),
-      el('div', { class: 'news-column' }, renderUpcoming(item), renderNews(item), renderFilings(item)),
+      el(
+        'div',
+        { class: 'news-column' },
+        el(
+          'div',
+          { class: 'news-scroll', tabindex: '0', role: 'region', 'aria-label': 'News and filings' },
+          renderUpcoming(item),
+          renderNews(item),
+          renderFilings(item),
+        ),
+      ),
     ),
   );
 
@@ -714,6 +746,12 @@ function render({ fresh = false } = {}) {
   });
   result.replaceChildren(...sections);
   stampCards(item);
+  if (liveFeed) {
+    liveFeed.watch(item.symbol);
+    liveHooks.hero = () => showHeroLive(item);
+    showHeroLive(item);
+    liveHooks.movers?.();
+  }
   drawChart?.();
 
   const selectedRow = result.querySelector('tr.is-selected');
@@ -725,6 +763,32 @@ function render({ fresh = false } = {}) {
   announcer.textContent = session
     ? `${item.name}: pivot ${formatNumber(session.pivot, item.currency, item.decimals)} for ${formatDate(data.date)}.`
     : noSessionText(data).title;
+}
+
+/* Personal live mode: the open stock's live price, and its pivot if today closed at that price. */
+
+const liveHooks = {};
+
+function showHeroLive(item) {
+  const host = result.querySelector('.hero-live');
+  const quote = liveFeed?.quote(item.symbol);
+  if (!host) return;
+  host.hidden = !quote;
+  if (!quote) return;
+  const price = (value) => formatNumber(value, item.currency, item.decimals);
+  const pivotSoFar = quote.open && quote.high ? (quote.open + quote.high + quote.last) / 3 : null;
+  fill(
+    host,
+    el(
+      'p',
+      {},
+      el('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+      el('strong', {}, `Live ${price(quote.last)}`),
+      quote.changePercent === null ? null : el('span', { class: directionClass(quote.change) }, ` ${formatSigned(quote.change, item.currency, item.decimals)} (${formatSigned(quote.changePercent)}%)`),
+      liveFeed.lastTick ? el('span', { class: 'hero-live-time' }, ` · ${formatLiveTime(liveFeed.lastTick)}`) : null,
+    ),
+    pivotSoFar ? el('p', { class: 'hero-live-pivot' }, `Today’s pivot so far: (${price(quote.open)} + ${price(quote.high)} + ${price(quote.last)}) ÷ 3 = ${price(pivotSoFar)}, until the close`) : null,
+  );
 }
 
 // Each card says when its own data was last collected. Prices come with the stock or index itself,
@@ -967,6 +1031,7 @@ function heatmapOptions(info, extra = {}) {
     tradingDays,
     initialDate: tradingDays.at(-1),
     updatedAt: market.updatedAt,
+    live: liveFeed,
     savedGroup: readSaved('heatGroup') ?? 'NIFTY 50',
     savedLayout: readSaved('heatLayout'),
     onChange: ({ group, layout }) => {
@@ -1119,13 +1184,27 @@ function renderPresets() {
     ...market.strip.map(({ symbol, label, close, changePercent, currency }) =>
       el(
         'button',
-        { type: 'button', 'data-symbol': symbol, 'data-label': label, 'aria-pressed': 'false', onclick: () => selectInstrument(symbol, label) },
+        { type: 'button', 'data-symbol': symbol, 'data-label': label, 'data-currency': currency, 'aria-pressed': 'false', onclick: () => selectInstrument(symbol, label) },
         el('span', { class: 'preset-name' }, label),
         el('span', { class: 'preset-close' }, formatNumber(close, currency)),
         changePercent === null ? null : el('span', { class: `preset-change ${directionClass(changePercent) ?? ''}` }, `${formatSigned(changePercent)}%`),
       ),
     ),
   );
+}
+
+// In live mode each index in the row shows its live price. US indices aren't on Kite, so they keep their close.
+function refreshPresetsLive() {
+  for (const button of presetsHost.querySelectorAll('button[data-symbol]')) {
+    const quote = liveFeed.quote(button.dataset.symbol);
+    if (!quote) continue;
+    button.classList.add('is-live');
+    button.querySelector('.preset-close').textContent = formatNumber(quote.last, button.dataset.currency);
+    let change = button.querySelector('.preset-change');
+    if (!change) button.append((change = el('span', { class: 'preset-change' })));
+    change.className = `preset-change ${directionClass(quote.changePercent) ?? ''}`;
+    change.textContent = quote.changePercent === null ? '' : `${formatSigned(quote.changePercent)}%`;
+  }
 }
 
 /* NIFTY 50's expected range from India VIX. VIX is the yearly volatility the options market expects, as a
@@ -1141,17 +1220,23 @@ function renderVixRange() {
   const vix = market.strip.find(({ symbol }) => symbol === 'INDIA VIX');
   const nifty = market.strip.find(({ symbol }) => symbol === 'NIFTY 50');
   if (!vix?.close || !nifty?.close) return;
-  const asOf = market.tradingDays('NSE').at(-1);
+  // Live mode uses the live VIX and NIFTY 50, so the ranges move with the market.
+  const liveVix = liveFeed?.quote('INDIA VIX');
+  const liveNifty = liveFeed?.quote('NIFTY 50');
+  const isLive = Boolean(liveVix && liveNifty);
+  const vixLevel = isLive ? liveVix.last : vix.close;
+  const niftyLevel = isLive ? liveNifty.last : nifty.close;
+  const asOf = isLive && liveFeed.lastTick ? `live at ${formatLiveTime(liveFeed.lastTick)}` : formatPlainDate(market.tradingDays('NSE').at(-1));
   const points = (value) => formatNumber(value, 'INR', 0);
 
   const horizon = ({ label, divisor, root }) => {
-    const percent = vix.close / divisor;
-    const move = (nifty.close * percent) / 100;
+    const percent = vixLevel / divisor;
+    const move = (niftyLevel * percent) / 100;
     return el(
       'div',
-      { class: 'vix-band', title: `VIX ÷ ${root}: ${formatNumber(vix.close)} ÷ ${formatNumber(divisor)} = ${formatNumber(percent)}%` },
+      { class: 'vix-band', title: `VIX ÷ ${root}: ${formatNumber(vixLevel)} ÷ ${formatNumber(divisor)} = ${formatNumber(percent)}%` },
       el('h3', {}, label),
-      el('p', { class: 'vix-span' }, `${points(nifty.close - move)} – ${points(nifty.close + move)}`),
+      el('p', { class: 'vix-span' }, `${points(niftyLevel - move)} – ${points(niftyLevel + move)}`),
       el('p', { class: 'vix-move' }, `±${formatNumber(percent)}% · ±${points(move)} pts`),
     );
   };
@@ -1161,7 +1246,7 @@ function renderVixRange() {
       'div',
       { class: 'vix-head' },
       el('h2', { id: 'vix-range-title' }, 'NIFTY 50 expected range'),
-      el('p', {}, 'India VIX ', el('button', { type: 'button', class: 'vix-link', onclick: () => selectInstrument(vix.symbol, vix.label) }, formatNumber(vix.close)), ` · ${formatPlainDate(asOf)}`),
+      el('p', {}, 'India VIX ', el('button', { type: 'button', class: 'vix-link', onclick: () => selectInstrument(vix.symbol, vix.label) }, formatNumber(vixLevel)), ` · ${asOf}`),
     ),
     ...VIX_HORIZONS.map(horizon),
     updatedBadge(market.updatedAt),
@@ -1201,6 +1286,16 @@ status.classList.toggle('is-stale', isStale);
 
 renderPresets();
 renderVixRange();
+if (liveFeed) {
+  renderLivePill(document.querySelector('.topbar-end'));
+  liveFeed.on((kind, symbols) => {
+    if (kind !== 'quotes') return;
+    refreshPresetsLive();
+    if (symbols.includes('INDIA VIX') || symbols.includes('NIFTY 50')) renderVixRange();
+    liveHooks.hero?.();
+    liveHooks.movers?.();
+  });
+}
 dateInput.value = market.maxDate;
 const firstPreset = market.strip[0];
 selectInstrument(firstPreset.symbol, firstPreset.label);

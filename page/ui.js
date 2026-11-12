@@ -28,6 +28,11 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// replaceChildren would print a missing piece as the word "null", so missing pieces are left out.
+function fill(node, ...children) {
+  node.replaceChildren(...children.filter((child) => child !== null && child !== undefined));
+}
+
 const locale = (currency) => (currency === 'INR' ? 'en-IN' : 'en-US');
 
 function formatNumber(value, currency = 'INR', decimals = 2) {

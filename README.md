@@ -21,6 +21,23 @@ To update it straight away, open the project's **Actions** tab on GitHub, choose
 
 If an update fails, the live page stays as it was and GitHub emails you. When one source fails, its instruments keep their earlier data while the rest update. If updates stop for more than six days, the page says so at the top. To see which sources GitHub can currently reach, and test a complete build without publishing it, run the **Check data sources** workflow.
 
+## Personal live mode (Zerodha Kite Connect)
+
+The published site shows official end-of-day data. On your own computer, `npm run live` shows the same pages with live prices from your own Kite Connect account: the index row, the NIFTY 50 expected range, both heatmaps, the open stock's live price with today's pivot so far, and live top gainers and losers.
+
+Kite's terms say its live data "cannot be displayed to the public at large", so this runs only on your computer (http://127.0.0.1:4174) and is never published. It only reads prices and never places orders. Use a separate Kite Connect app for it, not the one your trading uses.
+
+1. In the [Kite Connect developer console](https://developers.kite.trade), create an app with market data, and set its redirect URL to `http://127.0.0.1:4174/live/callback`.
+2. Create a file named `.env.kite` in this folder with your app's key and secret. Git ignores this file.
+   ```
+   KITE_API_KEY=your_api_key
+   KITE_API_SECRET=your_api_secret
+   ```
+3. Build the site once (`npm run build`, or `npm run assemble` if the data is already collected), then run `npm run live`.
+4. Open http://127.0.0.1:4174 and choose **Log in to Kite**. Kite's login lasts until 6 AM the next day, so you log in once each morning.
+
+To try the live screens without a Kite account, run `npm run live -- --demo`. Its prices are made up, and the page says so.
+
 ## Build it on your own computer
 
 With [Node.js](https://nodejs.org) 18 or newer:
@@ -55,6 +72,7 @@ The page names its source beside each set of figures. It doesn't use sites whose
 - `lib/movers.js` works out each day's top gainers and losers, which `scripts/assemble.js` writes as a small file per date.
 - `lib/heatmap.js` gathers each day's moves for the heatmap, again as a file per date. `lib/treemap.js` lays out its tiles: sized by market cap and grouped by sector in the treemap, or equal and sorted by the move in the tiles view.
 - `scripts/assemble.js` joins the list of instruments and the code in `page/` and `lib/` into `dist/index.html`, and copies the data files beside it.
+- `scripts/live.js` and `scripts/sources/kite.js` run the personal live mode, and `page/live.js` is its side of the page. The published page only uses it when `npm run live` serves it.
 - `lib/pivot.js` holds the formula.
 - `lib/market.js` answers the page's questions, such as a day's pivot or the 52-week range.
 

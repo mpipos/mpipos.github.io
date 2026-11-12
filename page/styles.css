@@ -1324,15 +1324,46 @@ button {
 }
 
 .secondary > section,
-.news-column > section {
+.news-scroll > section {
   min-width: 0;
 }
 
 .news-column {
+  min-width: 0;
+}
+
+.news-scroll {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 1.75rem;
-  min-width: 0;
+}
+
+.news-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 0.5rem;
+}
+
+/* Beside the sessions table, the news card takes exactly the table card's height and scrolls inside,
+   so a long run of headlines never stretches the row and pushes the heatmap down.
+   contain: size keeps the headlines out of the row's height; stretch then fills it. */
+@media (min-width: 60.0625rem) {
+  .sessions ~ .news-column {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    min-height: 20rem;
+    contain: size;
+  }
+
+  .sessions ~ .news-column > .news-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
 }
 
 .table-scroll {
@@ -2650,6 +2681,166 @@ button.heat-index:active {
 
   .vix-span {
     font-size: 1rem;
+  }
+}
+
+/* Personal live mode (npm run live on your own computer). The published site never shows these. */
+
+.live-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  background: var(--up);
+  vertical-align: 0.05em;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 55%, transparent);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 0.4rem transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 26rem;
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.live-pill:not(.is-on) .live-dot {
+  background: var(--muted);
+  animation: none;
+}
+
+.live-pill.is-demo {
+  border-style: dashed;
+}
+
+.live-login {
+  color: var(--ink);
+}
+
+.live-message {
+  overflow: hidden;
+  color: var(--down-text);
+  text-overflow: ellipsis;
+}
+
+.hero-live {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--hero-glow);
+  box-shadow: inset 0 0 0 1px var(--on-hero-rule);
+  font-size: 0.875rem;
+}
+
+.hero-live p {
+  margin: 0;
+}
+
+/* The hero card is dark on a light page and light on a dark one, so its up and down colours lean on its ink. */
+.hero-live .is-up,
+.hero-live .is-down {
+  font-weight: 600;
+}
+
+.hero-live .is-up {
+  color: color-mix(in oklab, var(--up) 55%, var(--on-hero));
+}
+
+.hero-live .is-down {
+  color: color-mix(in oklab, var(--down) 60%, var(--on-hero));
+}
+
+.hero-live-time,
+.hero-live-pivot {
+  color: var(--on-hero-2);
+}
+
+.hero-live-pivot {
+  margin-top: 0.125rem !important;
+  font-size: 0.8125rem;
+}
+
+.presets button.is-live .preset-name::after {
+  content: "";
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-left: 0.375rem;
+  border-radius: 50%;
+  background: var(--up);
+  vertical-align: 0.1em;
+}
+
+.heat-when {
+  display: flex;
+  flex: 0 1 26rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.heat-when .heat-date {
+  flex: 1 1 auto;
+}
+
+.heat-live-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: 2.875rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.heat-live-toggle[aria-pressed="false"] .live-dot {
+  background: var(--muted);
+  animation: none;
+}
+
+.heat-live-toggle[aria-pressed="true"] {
+  border-color: var(--up);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--up);
+}
+
+@media (max-width: 40rem) {
+  /* The live pill says what matters here, so the official-data note makes room for it. */
+  .has-live .status {
+    display: none;
+  }
+
+  .live-pill {
+    max-width: 13rem;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    white-space: normal;
+  }
+
+  .heat-when {
+    flex-basis: 100%;
   }
 }
 

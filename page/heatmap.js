@@ -28,7 +28,8 @@ const bandClass = (percent) => {
 };
 
 // `embedded` puts everything in one card with its own heading, for the front page.
-function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, updatedAt, savedGroup, savedLayout, onChange, embedded = false }) {
+// `live` is the personal live mode's price feed, when the page runs under `npm run live`.
+function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate, updatedAt, savedGroup, savedLayout, onChange, embedded = false, live = null }) {
   const stocks = info.stocks.map(([symbol, name, sector, cap]) => ({ symbol, name, sector: info.sectors[sector] ?? 'Other', cap }));
   const indices = info.indices.map(([symbol, label, members]) => ({ symbol, label, members }));
   const openable = indices.filter(({ members }) => members?.length);
@@ -37,6 +38,8 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
     group: openable.some(({ symbol }) => symbol === savedGroup) ? savedGroup : openable[0]?.symbol,
     layout: HEAT_LAYOUTS.some(({ value }) => value === savedLayout) ? savedLayout : 'treemap',
     day: null,
+    // In live mode the map starts on the market as it is now, once prices arrive.
+    live: Boolean(live),
   };
 
   const tiles = new Map();
@@ -337,10 +340,11 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
     const index = indices.findIndex(({ symbol }) => symbol === state.group);
     const change = state.day?.i[index] ?? null;
     const label = indices[index]?.label ?? state.group;
-    summary.replaceChildren(
+    fill(
+      summary,
       el('strong', {}, label),
       change === null ? null : el('span', { class: directionClass(change) }, ` ${formatSigned(change)}%`),
-      ` on ${formatDate(state.date)}. `,
+      isLiveNow() ? ` live at ${formatLiveTime(live.lastTick)}. ` : ` on ${formatDate(state.date)}. `,
       el('span', { class: 'is-up' }, `${up} rose`),
       ', ',
       el('span', { class: 'is-down' }, `${down} fell`),
@@ -380,6 +384,7 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
         return;
       }
       message.hidden = true;
+      if (isLiveNow()) return;
       state.day = day;
       draw();
     } catch {
@@ -390,9 +395,72 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
     }
   }
 
-  dateInput.addEventListener('change', () => dateInput.value && dateInput.validity.valid && goTo(dateInput.value));
-  previous.addEventListener('click', () => sessionIndex() > 0 && goTo(tradingDays[sessionIndex() - 1]));
-  next.addEventListener('click', () => sessionIndex() < tradingDays.length - 1 && goTo(tradingDays[sessionIndex() + 1]));
+  /* Personal live mode: each stock's live move against its previous close, redrawn as prices arrive. */
+
+  const isLiveNow = () => Boolean(live && state.live && live.lastTick);
+  const roundMove = (value) => Math.round(value * 100) / 100;
+  const liveDay = () => ({
+    i: indices.map(({ symbol }) => {
+      const quote = live.quote(symbol);
+      return quote?.changePercent === null || !quote ? null : roundMove(quote.changePercent);
+    }),
+    s: stocks.map(({ symbol }) => {
+      const quote = live.quote(symbol);
+      return quote && quote.changePercent !== null ? [quote.last, roundMove(quote.changePercent)] : null;
+    }),
+  });
+
+  const liveButton = live
+    ? el(
+        'button',
+        { type: 'button', class: 'heat-live-toggle', 'aria-pressed': 'true', onclick: () => (state.live ? leaveLive(true) : showLive()) },
+        el('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+        'Live',
+      )
+    : null;
+
+  let lastTilesDraw = 0;
+  function showLive() {
+    state.live = true;
+    liveButton?.setAttribute('aria-pressed', 'true');
+    if (!live.lastTick) return;
+    state.day = liveDay();
+    message.hidden = true;
+    board.classList.remove('is-loading');
+    lastTilesDraw = Date.now();
+    draw();
+  }
+
+  // Choosing a day shows that day's official closes instead.
+  function leaveLive(reload) {
+    if (!state.live) return;
+    state.live = false;
+    liveButton?.setAttribute('aria-pressed', 'false');
+    if (reload) goTo(state.date);
+  }
+
+  live?.on((kind) => {
+    if (kind !== 'quotes' || !state.live) return;
+    // Equal tiles re-sort by the move, so they're redrawn less often than the treemap, whose tiles only recolour.
+    if (state.layout === 'tiles' && Date.now() - lastTilesDraw < 5000) return;
+    showLive();
+  });
+
+  dateInput.addEventListener('change', () => {
+    if (!dateInput.value || !dateInput.validity.valid) return;
+    leaveLive(false);
+    goTo(dateInput.value);
+  });
+  previous.addEventListener('click', () => {
+    if (sessionIndex() <= 0) return;
+    leaveLive(false);
+    goTo(tradingDays[sessionIndex() - 1]);
+  });
+  next.addEventListener('click', () => {
+    if (sessionIndex() >= tradingDays.length - 1) return;
+    leaveLive(false);
+    goTo(tradingDays[sessionIndex() + 1]);
+  });
 
   let lastWidth = 0;
   new ResizeObserver(([entry]) => {
@@ -421,7 +489,7 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
     el(
       'div',
       { class: 'heat-tools' },
-      el('div', { class: 'date-control heat-date' }, previous, dateInput, next),
+      el('div', { class: 'heat-when' }, el('div', { class: 'date-control heat-date' }, previous, dateInput, next), liveButton),
       segmented({
         label: 'Layout',
         options: HEAT_LAYOUTS,
@@ -455,4 +523,5 @@ function renderHeatmapView(host, { info, loadDay, tradingDays, open, initialDate
   }
 
   goTo(state.date);
+  if (live?.lastTick) showLive();
 }

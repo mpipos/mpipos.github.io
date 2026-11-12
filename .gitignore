@@ -1,3 +1,5 @@
 .cache/
 dist/
 .DS_Store
+# Your Kite Connect API key and secret, for npm run live. Never commit it.
+.env.kite
