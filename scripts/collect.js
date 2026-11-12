@@ -91,7 +91,7 @@ const OTHER_INDICES = [
   { symbol: 'NASDAQ COMPOSITE', label: 'NASDAQ', yahoo: '^IXIC', name: 'NASDAQ Composite', exchange: 'NASDAQ', currency: 'USD', news: '"Nasdaq Composite" OR "Nasdaq"', keyword: 'nasdaq', region: 'US' },
 ];
 
-const STRIP_SYMBOLS = ['NIFTY 50', 'NIFTY BANK', 'NIFTY FINANCIAL SERVICES', 'SENSEX', 'S&P 500', 'NASDAQ COMPOSITE', 'DOW JONES'];
+const STRIP_SYMBOLS = ['NIFTY 50', 'NIFTY BANK', 'NIFTY FINANCIAL SERVICES', 'SENSEX', 'INDIA VIX', 'S&P 500', 'NASDAQ COMPOSITE', 'DOW JONES'];
 
 // Names the financial press uses more often than the registered company name.
 const PRESS_NAMES = {
