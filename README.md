@@ -15,6 +15,8 @@ GitHub rebuilds and publishes the page twice a day, using `.github/workflows/upd
 - 21:15 India time, after NSE publishes the day's reports.
 - 07:45 India time, after US markets close.
 
+A Claude routine also asks GitHub for an update at 21:00 India time on weekdays, because GitHub often starts its scheduled runs hours late.
+
 To update it straight away, open the project's **Actions** tab on GitHub, choose **Update the site**, then **Run workflow**.
 
 If an update fails, the live page stays as it was and GitHub emails you. When one source fails, its instruments keep their earlier data while the rest update. If updates stop for more than six days, the page says so at the top. To see which sources GitHub can currently reach, and test a complete build without publishing it, run the **Check data sources** workflow.
